@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const { PolicyBuilder } = require('../js/policy-builder.js');
+const dlpNode = require('../security/dlp-node.js');
 
 console.log('\x1b[36m%s\x1b[0m', '🧪 Running Warden Platform Automated Test Suite...');
 
@@ -51,6 +52,15 @@ test('PolicyBuilder allows adding and removing egress domains', () => {
   assert.ok(pb.state.egressDomains.includes('api.anthropic.com'), 'Domain should be added');
   pb.removeDomain('api.anthropic.com');
   assert.ok(!pb.state.egressDomains.includes('api.anthropic.com'), 'Domain should be removed');
+});
+
+// 5. Test DLP Secret Redaction System
+test('DLP Engine redacts AWS keys and OpenAI tokens', () => {
+  const sampleSnippet = 'aws_key = "AKIA1234567890ABCDEF"; token = "sk-1234567890abcdef1234567890abcdef"';
+  const sanitized = dlpNode.sanitizeCode(sampleSnippet);
+  assert.ok(!sanitized.includes('AKIA1234567890ABCDEF'), 'AWS Key must be redacted');
+  assert.ok(sanitized.includes('[REDACTED_AWS_ACCESS_KEY]'), 'Redaction placeholder must be present');
+  assert.ok(!sanitized.includes('sk-1234567890abcdef1234567890abcdef'), 'OpenAI key must be redacted');
 });
 
 console.log('\n----------------------------------------');

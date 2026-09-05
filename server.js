@@ -1,4 +1,4 @@
-/* Warden Security Platform - Express.js REST API Server */
+/* Warden Security Platform - Express.js REST API Server with DLP Zero Data Leakage Shield */
 
 require('dotenv').config();
 const express = require('express');
@@ -6,6 +6,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const db = require('./db');
+const dlp = require('./security/dlp-node');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -20,13 +21,14 @@ app.use(express.static(path.join(__dirname)));
 app.get('/api/v1/health', (req, res) => {
   res.json({
     status: 'HEALTHY',
-    service: 'Warden Sandbox API Engine',
-    version: '1.0.0',
+    service: 'Warden Sandbox API Engine with DLP Shield',
+    version: '1.1.0',
+    zeroDataLeakage: 'ENFORCED',
     timestamp: new Date().toISOString()
   });
 });
 
-// REST API: Run Sandbox Code Snippet
+// REST API: Run Sandbox Code Snippet with DLP Sanitization
 app.post('/api/v1/sandbox/run', async (req, res) => {
   const { code, policyName = 'default-python-sandbox', isEnforced = true } = req.body;
 
@@ -34,11 +36,13 @@ app.post('/api/v1/sandbox/run', async (req, res) => {
     return res.status(400).json({ error: 'Missing required string parameter: code' });
   }
 
+  // Pre-execution secret sanitization via DLP Engine
+  const sanitizedCode = dlp.sanitizeCode(code);
   const runId = 'run_' + Math.random().toString(36).substring(2, 10);
   const timestamp = new Date().toISOString();
 
-  // Evaluate pattern threat triggers
-  const hasEtcPasswd = code.includes('/etc/passwd') || code.includes('environ');
+  // Evaluate threat patterns
+  const hasEtcPasswd = code.includes('/etc/passwd') || code.includes('environ') || code.includes('AKIA');
   const hasC2IP = code.includes('203.0.113.88') || code.includes('198.51.100.44') || code.includes('socket.connect');
   const hasFork = code.includes('os.fork()');
   
@@ -52,7 +56,7 @@ app.post('/api/v1/sandbox/run', async (req, res) => {
       isViolated = true;
       status = 'CONTAINED';
       violationType = 'OVERLAY_FS_BLOCK';
-      violationDetails = { message: 'Read attempt outside writable /tmp directory blocked.', path: '/etc/passwd' };
+      violationDetails = { message: 'Read attempt outside writable /tmp directory blocked. Secrets sanitized.', path: '/etc/passwd' };
     } else {
       status = 'EXPOSED';
     }
@@ -78,12 +82,12 @@ app.post('/api/v1/sandbox/run', async (req, res) => {
 
   const executionTimeMs = (Math.random() * 5 + 35).toFixed(2);
 
-  // Try recording into PostgreSQL if database connected
+  // Record sanitized code run in PostgreSQL audit trail
   let dbAuditLog = null;
   try {
     dbAuditLog = await db.recordSandboxRun({
       runId,
-      codeSnippet: code,
+      codeSnippet: sanitizedCode,
       snippetHash: 'sha256:' + Math.random().toString(36).substring(2, 12),
       status,
       isViolated,
@@ -92,7 +96,7 @@ app.post('/api/v1/sandbox/run', async (req, res) => {
       executionTimeMs: parseFloat(executionTimeMs)
     });
   } catch (err) {
-    // Database fallback if PostgreSQL server isn't running locally
+    // DB fallback
   }
 
   res.json({
@@ -105,6 +109,8 @@ app.post('/api/v1/sandbox/run', async (req, res) => {
     violationDetails,
     executionTimeMs: parseFloat(executionTimeMs),
     blastRadius: isEnforced ? '0% (Host Protected)' : '100% (CRITICAL RISK)',
+    dlpSanitized: true,
+    dataLeakageBytes: isEnforced ? 0 : 4096,
     postgresLogged: !!dbAuditLog
   });
 });
@@ -119,11 +125,11 @@ app.get('/api/v1/policies', async (req, res) => {
   }
 });
 
-// Fallback to index.html for SPA routing
+// Fallback SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`[WARDEN SERVER] Server running on http://localhost:${PORT}`);
+  console.log(`[WARDEN SERVER] Server with DLP Shield running on http://localhost:${PORT}`);
 });
