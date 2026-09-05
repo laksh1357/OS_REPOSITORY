@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Warden — OS-level kernel sandboxing and real-time security containment platform for AI-generated code execution.">
+  <title>Warden — OS-Level Sandboxing for AI Code Execution</title>
+  
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- AMBIENT GLOW DECORATIONS -->
+  <div class="ambient-glow-left"></div>
+
+  <!-- NAVBAR -->
+  <header class="navbar" id="navbar">
+    <div class="wrap nav-container">
+      <a href="#" class="brand" aria-label="Warden Homepage">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 19 6v5c0 4.7-2.9 8.1-7 10-4.1-1.9-7-5.3-7-10V6l7-3Z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <span>Warden<span class="brand-dot">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#playground" class="nav-link">Playground</a></li>
+        <li><a href="#architecture" class="nav-link">5-Layer Architecture</a></li>
+        <li><a href="#policy-builder" class="nav-link">Policy Builder</a></li>
+        <li><a href="#attack-matrix" class="nav-link">Attack Matrix</a></li>
+        <li><a href="#specs" class="nav-link">Benchmarks</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="#policy-builder" class="btn-ghost">Documentation</a>
+        <a href="#playground" class="btn-primary">
+          Launch Sandbox <span>↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main>
+    <!-- HERO SECTION -->
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-left">
+          <div class="badge">
+            <span class="pulse-dot"></span> OS-LEVEL KERNEL CONTAINMENT FOR AI
+          </div>
+          <h1>Let the model write code.<br><span class="accent">Not break the host.</span></h1>
+          <p class="hero-desc">
+            Warden runs every AI-generated snippet inside a disposable, kernel-enforced MicroVM sandbox — intercepting malicious syscalls, blocking unauthorized network egress, and containing filesystem access before execution hits your host.
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="#playground" class="btn-primary">Try Live Sandbox <span>→</span></a>
+            <div class="command-pill">
+              <span>$</span>
+              <code id="cmd-install-text">curl -sSL warden.dev/install | sh</code>
+              <button class="copy-btn copy-trigger" data-copy-target="cmd-install-text" title="Copy Install Command">⧉</button>
+            </div>
+          </div>
+
+          <div class="hero-highlights">
+            <div class="hero-highlight-item">
+              <span class="icon">✓</span> Default-deny egress
+            </div>
+            <div class="hero-highlight-item">
+              <span class="icon">✓</span> Seccomp syscall filter
+            </div>
+            <div class="hero-highlight-item">
+              <span class="icon">✓</span> Ephemeral OverlayFS
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="terminal-card">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="terminal-title">warden-run / task_7f2a1c</div>
+              <div class="terminal-status-badge">
+                <span class="pulse-dot"></span>
+                <span id="hero-status">CONTAINED</span>
+              </div>
+            </div>
+
+            <div class="terminal-body" id="hero-terminal">
+              <!-- Live Terminal Lines Populated via JS Engine -->
+            </div>
+
+            <div class="terminal-footer">
+              <span>WARDEN RUNTIME v1.4 · REAL-TIME CONTAINMENT</span>
+              <button class="replay-btn" id="replay-hero-btn">Replay Execution ↻</button>
+            </div>
+          </div>
+
+          <div class="floating-stat-badge">
+            <div class="floating-stat-label">Blast Radius</div>
+            <div class="floating-stat-val">Host Access <span>BLOCKED</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST BAR -->
+    <div class="trust-bar">
+      <div class="wrap trust-items">
+        <span class="trust-item">MICROVM RUNTIME</span>
+        <span class="trust-item">SECCOMP-BPF</span>
+        <span class="trust-item">CGROUPS V2</span>
+        <span class="trust-item">NAMESPACE ISOLATION</span>
+        <span class="trust-item">DEFAULT-DENY EGRESS</span>
+      </div>
+    </div>
+
+    <!-- PLAYGROUND SECTION -->
+    <section class="page-section" id="playground">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="section-tag">01 / Interactive Playground</div>
+            <h2>Simulate Untrusted AI Snippets Live</h2>
+          </div>
+          <p>
+            Choose a malicious or legitimate AI code scenario below. Watch Warden evaluate kernel syscalls, enforce cgroup ceilings, and block unauthorized network channels in real time.
+          </p>
+        </div>
+
+        <div class="playground-container">
+          <div class="playground-controls">
+            <div class="preset-selector">
+              <label>Select Threat Scenario Preset:</label>
+              <div class="preset-buttons">
+                <button class="preset-btn active" data-preset="exfiltration">
+                  <span>Exfiltrate /etc/passwd</span>
+                  <span class="risk-tag exfiltration">Cred Theft</span>
+                </button>
+                <button class="preset-btn" data-preset="malware">
+                  <span>Reverse Shell C2</span>
+                  <span class="risk-tag malicious">Malware</span>
+                </button>
+                <button class="preset-btn" data-preset="forkbomb">
+                  <span>Fork Bomb Denial</span>
+                  <span class="risk-tag malicious">Resource DoS</span>
+                </button>
+                <button class="preset-btn" data-preset="safe_pypi">
+                  <span>PyPI Package Query</span>
+                  <span class="risk-tag safe">Allowed Task</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="code-editor-wrap">
+              <div class="code-editor-header">
+                <span>python_snippet.py</span>
+                <span>Python 3.12 Slim</span>
+              </div>
+              <textarea class="code-editor" id="pg-code-editor" spellcheck="false"></textarea>
+            </div>
+
+            <div class="playground-actions">
+              <label class="toggle-switch">
+                <input type="checkbox" id="pg-enforce-toggle" checked>
+                <span class="switch"></span>
+                <span>Warden Kernel Containment (ON)</span>
+              </label>
+
+              <button class="btn-primary" id="pg-run-btn">
+                Execute in Sandbox ▶
+              </button>
+            </div>
+          </div>
+
+          <div class="playground-output">
+            <div class="output-tabs">
+              <span class="output-tab active">Kernel Log Console</span>
+              <span class="output-tab" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+                Status: <strong id="pg-status" style="color:var(--green)">READY</strong>
+              </span>
+            </div>
+
+            <div class="output-console" id="pg-console">
+              <div class="term-line info">
+                <span class="term-text">Click 'Execute in Sandbox' to trigger Warden kernel isolation engine...</span>
+              </div>
+            </div>
+
+            <div class="execution-summary-card" id="pg-summary">
+              <div class="summary-metric">
+                <label>Blast Radius</label>
+                <span style="color:var(--green)">0% (Protected)</span>
+              </div>
+              <div class="summary-metric">
+                <label>Kernel Latency</label>
+                <span>3.8ms</span>
+              </div>
+              <div class="summary-metric">
+                <label>Syscall Status</label>
+                <span style="color:var(--green)">Filtered</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5-LAYER ARCHITECTURE SECTION -->
+    <section class="page-section" id="architecture">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="section-tag">02 / Defense in Depth</div>
+            <h2>Five Boundaries. Zero Host Escape.</h2>
+          </div>
+          <p>
+            Warden surrounds every process with 5 strict kernel security boundaries. Click any layer to inspect its underlying Linux kernel primitive and enforcement policy.
+          </p>
+        </div>
+
+        <div class="arch-grid">
+          <div class="layers-interactive-list" id="arch-layer-list">
+            <div class="layer-card active" data-layer="5">
+              <div class="layer-header">
+                <div class="layer-title">
+                  <span class="layer-num">01</span>
+                  <h3>Syscall Filtering</h3>
+                </div>
+                <span class="layer-tech-badge">seccomp-bpf</span>
+              </div>
+              <p class="layer-desc">Default-deny BPF table trapping prohibited system calls before entering kernel handlers.</p>
+            </div>
+
+            <div class="layer-card" data-layer="4">
+              <div class="layer-header">
+                <div class="layer-title">
+                  <span class="layer-num">02</span>
+                  <h3>Namespace Isolation</h3>
+                </div>
+                <span class="layer-tech-badge">Linux Namespaces</span>
+              </div>
+              <p class="layer-desc">Isolated PID tree, netstack, VFS mount table, and unprivileged user mappings.</p>
+            </div>
+
+            <div class="layer-card" data-layer="3">
+              <div class="layer-header">
+                <div class="layer-title">
+                  <span class="layer-num">03</span>
+                  <h3>Resource Ceilings</h3>
+                </div>
+                <span class="layer-tech-badge">cgroups v2</span>
+              </div>
+              <p class="layer-desc">Deterministic CPU, RAM, open file descriptor, and process multiplication limits.</p>
+            </div>
+
+            <div class="layer-card" data-layer="2">
+              <div class="layer-header">
+                <div class="layer-title">
+                  <span class="layer-num">04</span>
+                  <h3>Ephemeral Filesystem</h3>
+                </div>
+                <span class="layer-tech-badge">OverlayFS</span>
+              </div>
+              <p class="layer-desc">Read-only root base image with a disposable memory scratchpad wiped on exit.</p>
+            </div>
+
+            <div class="layer-card" data-layer="1">
+              <div class="layer-header">
+                <div class="layer-title">
+                  <span class="layer-num">05</span>
+                  <h3>Network Egress Policy</h3>
+                </div>
+                <span class="layer-tech-badge">eBPF Network Filter</span>
+              </div>
+              <p class="layer-desc">Default-deny egress drop filter matching outbound sockets against domain allowlists.</p>
+            </div>
+          </div>
+
+          <div class="arch-visualizer-box">
+            <h4>Live Isolation Topology</h4>
+            <div class="svg-arch-container" id="arch-svg-container">
+              <!-- SVG Rendered Dynamically via ArchVisualizer JS -->
+            </div>
+            <div id="arch-info-box" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--panel-border);">
+              <!-- Layer Info Rendered Here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- POLICY BUILDER SECTION -->
+    <section class="page-section" id="policy-builder">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="section-tag">03 / Policy Engine</div>
+            <h2>Declarative YAML Security Policies</h2>
+          </div>
+          <p>
+            Define resource limits, filesystem permissions, and domain allowlists in plain code. Instantly export to YAML or native Python / Go SDKs.
+          </p>
+        </div>
+
+        <div class="policy-builder-layout">
+          <div class="policy-form-card">
+            <h3 style="font-size:1.15rem;">Configure Sandbox Boundaries</h3>
+
+            <div class="form-group">
+              <label>
+                <span>CPU Quota Ceiling</span>
+                <span class="val-display" id="val-cpu">0.5 Cores</span>
+              </label>
+              <input type="range" class="range-slider" id="slider-cpu" min="0.1" max="4.0" step="0.1" value="0.5">
+            </div>
+
+            <div class="form-group">
+              <label>
+                <span>Memory Allocation Limit</span>
+                <span class="val-display" id="val-mem">256 MiB</span>
+              </label>
+              <input type="range" class="range-slider" id="slider-mem" min="64" max="2048" step="64" value="256">
+            </div>
+
+            <div class="form-group">
+              <label>
+                <span>Max Child Processes (PIDs)</span>
+                <span class="val-display" id="val-pid">8</span>
+              </label>
+              <input type="range" class="range-slider" id="slider-pid" min="1" max="64" step="1" value="8">
+            </div>
+
+            <div class="form-group">
+              <label>Allowed Network Egress Domains:</label>
+              <div class="network-domains-input">
+                <input type="text" class="input-text" id="input-domain" placeholder="e.g. api.anthropic.com">
+                <button class="btn-secondary" id="btn-add-domain">+ Add</button>
+              </div>
+              <div class="domain-chips" id="domain-chips-container">
+                <!-- Chips rendered via JS -->
+              </div>
+            </div>
+          </div>
+
+          <div class="code-export-card">
+            <div class="code-export-tabs">
+              <button class="code-tab active" data-lang="yaml">warden.yaml</button>
+              <button class="code-tab" data-lang="python">Python SDK</button>
+              <button class="code-tab" data-lang="go">Go SDK</button>
+              <button class="code-tab" data-lang="curl">cURL API</button>
+              <button class="btn-ghost copy-trigger" data-copy-target="code-output-area" style="margin-left:auto; font-size:0.75rem;">📋 Copy</button>
+            </div>
+
+            <pre class="code-preview-area" id="code-output-area">
+<!-- Dynamic policy code generated via JS -->
+            </pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ATTACK MATRIX & BENCHMARKS SECTION -->
+    <section class="page-section" id="attack-matrix">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="section-tag">04 / Threat Model</div>
+            <h2>Attack Matrix vs Warden Containment</h2>
+          </div>
+          <p>
+            Comparing bare host / standard docker setups against Warden kernel-enforced sandboxes across common AI agent attack vectors.
+          </p>
+        </div>
+
+        <div class="matrix-grid" id="attack-matrix-container">
+          <!-- Rendered via JS -->
+        </div>
+
+        <!-- BENCHMARK METRICS ROW -->
+        <div class="metrics-row" id="specs">
+          <div class="metric-card">
+            <strong>~38<span>ms</span></strong>
+            <p>MicroVM Warm Cold-Start</p>
+          </div>
+          <div class="metric-card">
+            <strong>0<span>B</span></strong>
+            <p>Residual Filesystem Leak</p>
+          </div>
+          <div class="metric-card">
+            <strong>100<span>%</span></strong>
+            <p>Seccomp Syscall Trapping</p>
+          </div>
+          <div class="metric-card">
+            <strong>&lt; 5<span>MB</span></strong>
+            <p>Base Memory Footprint</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA BANNER -->
+    <section class="page-section" style="border-bottom:none;">
+      <div class="wrap">
+        <div class="cta-banner">
+          <div class="cta-left">
+            <h2>Ready to Sandbox Your AI Agents?</h2>
+            <p>Embed Warden into your Python, Go, or Node workflows in less than 5 minutes.</p>
+          </div>
+          <div>
+            <a href="#playground" class="btn-primary" style="padding:14px 28px; font-size:1rem;">
+              Get Started Now <span>→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap footer-container">
+      <div>
+        <strong>Warden Security Platform</strong> — Kernel-enforced MicroVM sandboxing for AI code.
+      </div>
+      <div class="footer-links">
+        <a href="#playground">Playground</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#policy-builder">Policy Builder</a>
+        <a href="#attack-matrix">Attack Matrix</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JAVASCRIPT MODULES -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
