@@ -209,6 +209,33 @@
             </div>
           </div>
         </div>
+
+        <!-- REAL-TIME AUDIT LOG FEED SUB-SECTION -->
+        <div style="margin-top: 32px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius-l); padding: 24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="font-size:1.05rem; display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--green)">📜</span> Live Security Audit Log Stream (PostgreSQL Sync)
+            </h3>
+            <span class="badge" style="font-size:0.7rem;"><span class="pulse-dot"></span> AUDIT RING BUFFER ACTIVE</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.78rem; text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--panel-border); color:var(--text-dim);">
+                  <th style="padding:10px;">Run ID</th>
+                  <th style="padding:10px;">Target Threat</th>
+                  <th style="padding:10px;">Containment Action</th>
+                  <th style="padding:10px;">DLP Data Leakage</th>
+                  <th style="padding:10px;">Latency</th>
+                  <th style="padding:10px;">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="audit-feed-body">
+                <!-- Populated via AuditFeed JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
 

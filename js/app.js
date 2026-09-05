@@ -4,6 +4,7 @@ import { SandboxEngine, PRESET_SNIPPETS } from './sandbox-engine.js';
 import { PolicyBuilder } from './policy-builder.js';
 import { ArchVisualizer } from './arch-visualizer.js';
 import { renderAttackMatrix } from './attack-matrix.js';
+import { AuditFeed } from './audit-feed.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   // 1. Initialize Navbar Scroll Behavior
@@ -18,7 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 2. Initialize Hero Live Demo Terminal
+  // 2. Initialize Audit Feed Stream Component
+  const auditBodyEl = document.getElementById("audit-feed-body");
+  const auditFeed = auditBodyEl ? new AuditFeed(auditBodyEl) : null;
+  if (auditFeed) {
+    auditFeed.init();
+  }
+
+  // 3. Initialize Hero Live Demo Terminal
   const heroConsole = document.getElementById("hero-terminal");
   const heroStatus = document.getElementById("hero-status");
   const heroSummary = document.getElementById("hero-summary");
@@ -36,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 3. Initialize Interactive Sandbox Playground
+  // 4. Initialize Interactive Sandbox Playground
   const pgConsole = document.getElementById("pg-console");
   const pgStatus = document.getElementById("pg-status");
   const pgSummary = document.getElementById("pg-summary");
@@ -64,14 +72,37 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Run Button Click
-    pgRunBtn.addEventListener("click", () => {
+    pgRunBtn.addEventListener("click", async () => {
       const code = pgCodeArea.value;
       const isEnforced = pgEnforceToggle ? pgEnforceToggle.checked : true;
-      playgroundEngine.execute(code, isEnforced);
+      await playgroundEngine.execute(code, isEnforced);
+
+      if (auditFeed) {
+        const runId = 'run_' + Math.random().toString(36).substring(2, 10);
+        let action = 'COMPLETED (Exit 0)';
+        let threat = PRESET_SNIPPETS[activePresetKey] ? PRESET_SNIPPETS[activePresetKey].title : 'Custom Script Execution';
+        
+        if (code.includes('/etc/passwd') || code.includes('environ')) {
+          action = isEnforced ? 'OVERLAY_FS_BLOCK (SIGSYS)' : 'UNCONTAINED_EXPOSURE';
+        } else if (code.includes('203.0.113.88') || code.includes('socket.connect')) {
+          action = isEnforced ? 'EGRESS_DENY (eBPF Drop)' : 'UNCONTAINED_EXPOSURE';
+        } else if (code.includes('os.fork()')) {
+          action = isEnforced ? 'CGROUP_CEILING (PID Limit)' : 'UNCONTAINED_EXPOSURE';
+        }
+
+        auditFeed.addEntry({
+          runId,
+          threat,
+          action,
+          dlp: isEnforced ? '0 Bytes Leaked (Sanitized)' : 'EXPOSED RISK',
+          latency: '3.8ms',
+          timestamp: 'Just now'
+        });
+      }
     });
   }
 
-  // 4. Initialize Architecture Inspector (5 Layers)
+  // 5. Initialize Architecture Inspector (5 Layers)
   const archSvg = document.getElementById("arch-svg-container");
   const archList = document.getElementById("arch-layer-list");
   const archInfo = document.getElementById("arch-info-box");
@@ -81,7 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     archVis.init();
   }
 
-  // 5. Initialize Policy Builder
+  // 6. Initialize Policy Builder
   const policy = new PolicyBuilder();
   const yamlOutput = document.getElementById("code-output-area");
   const cpuSlider = document.getElementById("slider-cpu");
@@ -190,13 +221,13 @@ document.addEventListener("DOMContentLoaded", () => {
   renderDomainChips();
   renderPolicyOutput();
 
-  // 6. Initialize Attack Matrix
+  // 7. Initialize Attack Matrix
   const attackMatrixEl = document.getElementById("attack-matrix-container");
   if (attackMatrixEl) {
     renderAttackMatrix(attackMatrixEl);
   }
 
-  // 7. Clipboard Copy Actions
+  // 8. Clipboard Copy Actions
   document.querySelectorAll(".copy-trigger").forEach(btn => {
     btn.addEventListener("click", () => {
       const targetId = btn.dataset.copyTarget;
