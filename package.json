@@ -1,0 +1,36 @@
+{
+  "name": "warden-sandbox",
+  "version": "1.0.0",
+  "description": "OS-level kernel sandboxing and real-time security containment platform for AI-generated code execution.",
+  "main": "server.js",
+  "bin": {
+    "warden": "./bin/warden.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node tests/sandbox.test.js"
+  },
+  "keywords": [
+    "sandbox",
+    "security",
+    "seccomp",
+    "cgroups",
+    "microvm",
+    "ai-agent",
+    "postgresql",
+    "kernel-isolation"
+  ],
+  "author": "Lakshya Singh <singhlakshya7777@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "pg": "^8.11.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

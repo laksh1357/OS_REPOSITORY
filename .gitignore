@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment & Credentials
+.env
+.env.local
+*.pem
+
+# Database & Runtime Data
+postgres_data/
+*.log
+logs/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Build & Dist
+dist/
+coverage/
