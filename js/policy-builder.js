@@ -113,7 +113,7 @@ func main() {
 		SetMemoryMB(${this.state.memory}).
 		SetMaxPIDs(${this.state.pids}).
 		SetRootReadOnly(true).
-		AllowEgress(${JSON.stringify(this.state.egressDomains)...}).
+		AllowEgress(${this.state.egressDomains.map(d => `"${d}"`).join(", ")}).
 		SetSyscallProfile("${this.state.syscallProfile}").
 		Build()
 

@@ -8,13 +8,15 @@ import { renderAttackMatrix } from './attack-matrix.js';
 document.addEventListener("DOMContentLoaded", () => {
   // 1. Initialize Navbar Scroll Behavior
   const navbar = document.getElementById("navbar");
-  window.addEventListener("scroll", () => {
-    if (window.scrollY > 20) {
-      navbar.classList.add("scrolled");
-    } else {
-      navbar.classList.remove("scrolled");
-    }
-  });
+  if (navbar) {
+    window.addEventListener("scroll", () => {
+      if (window.scrollY > 20) {
+        navbar.classList.add("scrolled");
+      } else {
+        navbar.classList.remove("scrolled");
+      }
+    });
+  }
 
   // 2. Initialize Hero Live Demo Terminal
   const heroConsole = document.getElementById("hero-terminal");
@@ -55,7 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activePresetKey = btn.dataset.preset;
-        pgCodeArea.value = PRESET_SNIPPETS[activePresetKey].code;
+        if (PRESET_SNIPPETS[activePresetKey]) {
+          pgCodeArea.value = PRESET_SNIPPETS[activePresetKey].code;
+        }
       });
     });
 
@@ -110,15 +114,18 @@ document.addEventListener("DOMContentLoaded", () => {
     chipsContainer.innerHTML = policy.state.egressDomains.map(d => `
       <span class="chip">
         ${d}
-        <button data-domain="${d}">×</button>
+        <button data-domain="${d}" aria-label="Remove domain ${d}">×</button>
       </span>
     `).join("");
 
     chipsContainer.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", (e) => {
-        policy.removeDomain(e.target.dataset.domain);
-        renderDomainChips();
-        renderPolicyOutput();
+        const domain = e.currentTarget.dataset.domain;
+        if (domain) {
+          policy.removeDomain(domain);
+          renderDomainChips();
+          renderPolicyOutput();
+        }
       });
     });
   };
@@ -161,7 +168,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     addDomainBtn.addEventListener("click", handleAdd);
     domainInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") handleAdd();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAdd();
+      }
     });
   }
 

@@ -67,7 +67,10 @@ export class SandboxEngine {
   async execute(code, isEnforced = true) {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.consoleEl.innerHTML = "";
+    
+    if (this.consoleEl) {
+      this.consoleEl.innerHTML = "";
+    }
     
     this.updateStatus("SPAWNING MICROVM", "var(--blue)");
 
@@ -134,12 +137,12 @@ export class SandboxEngine {
       executionLogs.push({ text: `[${timestamp()}] [STDOUT] Package: requests v2.31.0`, type: "info" });
       executionLogs.push({ text: `[${timestamp()}] [STDOUT] Successfully fetched package info within sandbox policy boundaries.`, type: "success" });
     } else {
-      executionLogs.push({ text: `[${timestamp()}] [EXEC] Executing custom user script...`, type: "info" });
-      executionLogs.push({ text: `[${timestamp()}] [SECCOMP] All syscalls evaluated safe.`, type: "success" });
+      executionLogs.push({ text: `[${timestamp()}] [EXEC] Executing user script...`, type: "info" });
+      executionLogs.push({ text: `[${timestamp()}] [SECCOMP] All syscalls evaluated safe against policy profile.`, type: "success" });
       executionLogs.push({ text: `[${timestamp()}] [STDOUT] Program completed cleanly. Exit code 0.`, type: "success" });
     }
 
-    await this.appendLogsWithDelay(executionLogs, 300);
+    await this.appendLogsWithDelay(executionLogs, 250);
 
     // Tear down
     const teardownLogs = [];
@@ -161,6 +164,7 @@ export class SandboxEngine {
   }
 
   async appendLogsWithDelay(logs, delayMs) {
+    if (!this.consoleEl) return;
     for (const item of logs) {
       const line = document.createElement("div");
       line.className = `term-line ${item.type}`;
@@ -172,6 +176,7 @@ export class SandboxEngine {
   }
 
   updateStatus(text, color) {
+    if (!this.statusEl) return;
     this.statusEl.textContent = text;
     this.statusEl.style.color = color;
   }
