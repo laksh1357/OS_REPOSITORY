@@ -9,6 +9,11 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
+// Handle idle client connection errors gracefully
+pool.on('error', (err) => {
+  console.error('[WARDEN DB POOL WARNING] Idle client connection error:', err.message);
+});
+
 /**
  * Record a sandbox execution run into PostgreSQL audit log table
  */

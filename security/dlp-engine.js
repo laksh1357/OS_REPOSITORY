@@ -2,7 +2,7 @@
 
 export const SECRET_PATTERNS = [
   { name: "AWS_ACCESS_KEY", regex: /AKIA[0-9A-Z]{16}/g, mask: "[REDACTED_AWS_KEY]" },
-  { name: "AWS_SECRET_KEY", regex: /[0-9a-zA-Z/+]{40}/g, mask: "[REDACTED_AWS_SECRET]" },
+  { name: "AWS_SECRET_KEY", regex: /(aws_secret_access_key|secret_key|AWS_SECRET)\s*[:=]\s*['"]?[0-9a-zA-Z/+]{40}['"]?/gi, mask: "$1 = '[REDACTED_AWS_SECRET]'" },
   { name: "OPENAI_API_KEY", regex: /sk-[a-zA-Z0-9]{32,}/g, mask: "[REDACTED_OPENAI_KEY]" },
   { name: "GITHUB_TOKEN", regex: /gh[pousr]_[a-zA-Z0-9]{36,}/g, mask: "[REDACTED_GITHUB_TOKEN]" },
   { name: "PRIVATE_RSA_KEY", regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----[\s\S]*?-----END \1 PRIVATE KEY-----/g, mask: "[REDACTED_PRIVATE_KEY]" },
@@ -30,8 +30,10 @@ export class DLPEngine {
     let sanitized = text;
 
     SECRET_PATTERNS.forEach(pattern => {
-      if (pattern.regex.test(sanitized)) {
-        sanitized = sanitized.replace(pattern.regex, pattern.mask);
+      // Direct replace without regex.test() to prevent lastIndex state bugs on global regexes
+      const prevLength = sanitized.length;
+      sanitized = sanitized.replace(pattern.regex, pattern.mask);
+      if (sanitized.length !== prevLength) {
         this.redactionCount++;
       }
     });
