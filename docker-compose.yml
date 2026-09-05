@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  warden-db:
+    image: postgres:16-alpine
+    container_name: warden-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-warden_db}
+      POSTGRES_USER: ${POSTGRES_USER:-warden}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-warden_secret_pass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warden} -d ${POSTGRES_DB:-warden_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local

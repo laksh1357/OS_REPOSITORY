@@ -100,6 +100,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!yamlOutput) return;
     if (activeCodeTab === "yaml") {
       yamlOutput.textContent = policy.generateYAML();
+    } else if (activeCodeTab === "sql") {
+      yamlOutput.textContent = policy.generateSQL();
     } else if (activeCodeTab === "python") {
       yamlOutput.textContent = policy.generatePythonSDK();
     } else if (activeCodeTab === "go") {

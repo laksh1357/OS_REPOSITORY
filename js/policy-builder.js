@@ -66,6 +66,39 @@ syscalls:
   audit_logging: true`;
   }
 
+  generateSQL() {
+    const domainsJSON = JSON.stringify(this.state.egressDomains);
+    const writableJSON = JSON.stringify(this.state.writableDirs);
+
+    return `-- PostgreSQL Policy Insertion Query
+INSERT INTO warden_policies (
+    name,
+    runtime,
+    cpu_limit,
+    memory_limit_mb,
+    max_processes,
+    root_readonly,
+    writable_paths,
+    egress_allowlist,
+    syscall_profile
+) VALUES (
+    'agent-task-sandbox',
+    '${this.state.runtime}',
+    ${this.state.cpu},
+    ${this.state.memory},
+    ${this.state.pids},
+    ${this.state.rootFs === 'read-only' ? 'TRUE' : 'FALSE'},
+    '${writableJSON}'::jsonb,
+    '${domainsJSON}'::jsonb,
+    '${this.state.syscallProfile}'
+) ON CONFLICT (name) DO UPDATE SET
+    cpu_limit = EXCLUDED.cpu_limit,
+    memory_limit_mb = EXCLUDED.memory_limit_mb,
+    max_processes = EXCLUDED.max_processes,
+    egress_allowlist = EXCLUDED.egress_allowlist,
+    updated_at = CURRENT_TIMESTAMP;`;
+  }
+
   generatePythonSDK() {
     const domains = JSON.stringify(this.state.egressDomains);
     return `from warden import Sandbox, Policy, PolicyViolationError

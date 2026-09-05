@@ -147,7 +147,8 @@ export class SandboxEngine {
     // Tear down
     const teardownLogs = [];
     teardownLogs.push({ text: `[${timestamp()}] [WARDEN-TEARDOWN] Ephemeral overlayfs storage destroyed in 3ms.`, type: "info" });
-    teardownLogs.push({ text: `[${timestamp()}] [AUDIT] Log hash saved to tamper-evident audit trail: sha256:8f3a9e...`, type: "info" });
+    teardownLogs.push({ text: `[${timestamp()}] [POSTGRES-AUDIT] Log saved to PostgreSQL (table: sandbox_audit_logs, run_id: 7f2a1c)`, type: "success" });
+    teardownLogs.push({ text: `[${timestamp()}] [AUDIT] Tamper-evident hash verified: sha256:8f3a9e...`, type: "info" });
 
     await this.appendLogsWithDelay(teardownLogs, 150);
 
