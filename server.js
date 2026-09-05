@@ -1,10 +1,13 @@
 /* Warden Security Platform - Express.js Modular REST API Server */
 
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) {}
+
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
-const helmet = require('helmet');
+
+let cors, helmet;
+try { cors = require('cors'); } catch (_) { cors = () => (req, res, next) => next(); }
+try { helmet = require('helmet'); } catch (_) { helmet = () => (req, res, next) => next(); }
 
 const healthRoutes = require('./routes/health');
 const sandboxRoutes = require('./routes/sandbox');
