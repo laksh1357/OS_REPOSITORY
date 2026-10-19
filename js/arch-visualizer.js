@@ -95,42 +95,45 @@ export class ArchVisualizer {
 
   bindEvents() {
     this.listEl.querySelectorAll(".layer-card").forEach(card => {
-      const layerNum = parseInt(card.dataset.layer);
+      const layerNum = parseInt(card.dataset.layer, 10);
       card.addEventListener("click", () => this.selectLayer(layerNum));
       card.addEventListener("mouseenter", () => this.highlightSVG(layerNum));
+      card.addEventListener("mouseleave", () => this.highlightSVG(this.currentLayer));
     });
 
     this.svg.querySelectorAll(".svg-layer-box.clickable").forEach(box => {
-      const layerNum = parseInt(box.dataset.layer);
+      const layerNum = parseInt(box.dataset.layer, 10);
       box.addEventListener("click", () => this.selectLayer(layerNum));
       box.addEventListener("mouseenter", () => this.highlightSVG(layerNum));
+      box.addEventListener("mouseleave", () => this.highlightSVG(this.currentLayer));
     });
   }
 
   selectLayer(layerNum) {
     this.currentLayer = layerNum;
     const info = LAYER_DETAILS[layerNum];
+    if (!info) return;
 
     // Update list UI
     this.listEl.querySelectorAll(".layer-card").forEach(c => {
-      c.classList.toggle("active", parseInt(c.dataset.layer) === layerNum);
+      c.classList.toggle("active", parseInt(c.dataset.layer, 10) === layerNum);
     });
 
     // Update SVG UI
     this.highlightSVG(layerNum);
 
-    // Update Detail Info Box
+    // Update Detail Info Box with CSS classes
     if (this.infoEl) {
       this.infoEl.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--green); font-weight:700;">LAYER ${info.num}</span>
+        <div class="layer-info-meta">
+          <span class="layer-info-num">LAYER ${info.num}</span>
           <span class="layer-tech-badge">${info.tech}</span>
         </div>
-        <h3 style="font-size:1.2rem; color:#fff; margin-bottom:10px;">${info.title}</h3>
-        <p style="font-size:0.88rem; color:var(--text-muted); line-height:1.6; margin-bottom:16px;">${info.desc}</p>
-        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--panel-border); border-radius:var(--radius-s); padding:12px;">
-          <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px;">Enforcement Specs:</div>
-          ${info.specs.map(s => `<div style="font-family:var(--font-mono); font-size:0.76rem; color:var(--green); margin-top:4px;">✓ ${s}</div>`).join("")}
+        <h3 class="layer-info-title">${info.title}</h3>
+        <p class="layer-info-desc">${info.desc}</p>
+        <div class="layer-info-specs-box">
+          <div class="layer-info-specs-label">Enforcement Specs:</div>
+          ${info.specs.map(s => `<div class="layer-info-spec-item">✓ ${s}</div>`).join("")}
         </div>
       `;
     }
@@ -138,7 +141,7 @@ export class ArchVisualizer {
 
   highlightSVG(layerNum) {
     this.svg.querySelectorAll(".svg-layer-box").forEach(box => {
-      const num = parseInt(box.dataset.layer);
+      const num = parseInt(box.dataset.layer, 10);
       if (num === layerNum) {
         box.setAttribute("stroke", "var(--green)");
         box.setAttribute("stroke-width", "2");

@@ -6,12 +6,11 @@
   <meta name="description" content="Warden — OS-level kernel sandboxing and real-time security containment platform for AI-generated code execution.">
   <title>Warden — OS-Level Sandboxing for AI Code Execution</title>
   
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
-
-  <!-- AMBIENT GLOW DECORATIONS -->
-  <div class="ambient-glow-left"></div>
 
   <!-- NAVBAR -->
   <header class="navbar" id="navbar">
@@ -23,7 +22,7 @@
             <path d="m9 12 2 2 4-4"/>
           </svg>
         </div>
-        <span>Warden<span class="brand-dot">.</span></span>
+        <span>Warden<span>.</span></span>
       </a>
 
       <ul class="nav-links">
@@ -35,9 +34,9 @@
       </ul>
 
       <div class="nav-actions">
-        <a href="#policy-builder" class="btn-ghost">Documentation</a>
-        <a href="#playground" class="btn-primary">
-          Launch Sandbox <span>↗</span>
+        <a href="#policy-builder" class="btn-secondary btn-sm">Documentation</a>
+        <a href="#playground" class="btn-primary btn-sm">
+          Launch Sandbox ↗
         </a>
       </div>
     </div>
@@ -52,134 +51,114 @@
           <div class="badge">
             <span class="pulse-dot"></span> OS-LEVEL KERNEL CONTAINMENT FOR AI
           </div>
-          <h1>Let the model write code.<br><span class="accent">Not break the host.</span></h1>
-          <p class="hero-desc">
+          <h1>Let the model write code.<br><span class="gradient-text">Not break the host.</span></h1>
+          <p class="hero-subhead">
             Warden runs every AI-generated snippet inside a disposable, kernel-enforced MicroVM sandbox — intercepting malicious syscalls, blocking unauthorized network egress, and containing filesystem access before execution hits your host.
           </p>
 
           <div class="hero-cta-group">
-            <a href="#playground" class="btn-primary">Try Live Sandbox <span>→</span></a>
-            <div class="command-pill">
+            <a href="#playground" class="btn-primary">Try Live Sandbox →</a>
+            <div class="badge">
               <span>$</span>
               <code id="cmd-install-text">curl -sSL warden.dev/install | sh</code>
-              <button class="copy-btn copy-trigger" data-copy-target="cmd-install-text" title="Copy Install Command">⧉</button>
+              <button class="copy-trigger" data-copy-target="cmd-install-text" aria-label="Copy Install Command" style="color:var(--text-dim); margin-left:6px;">⧉</button>
             </div>
           </div>
 
-          <div class="hero-highlights">
-            <div class="hero-highlight-item">
-              <span class="icon">✓</span> Default-deny egress
-            </div>
-            <div class="hero-highlight-item">
-              <span class="icon">✓</span> Seccomp syscall filter
-            </div>
-            <div class="hero-highlight-item">
-              <span class="icon">✓</span> Ephemeral OverlayFS
-            </div>
+          <div class="hero-tech-specs">
+            <span>✓ Default-deny egress</span>
+            <span>✓ Seccomp syscall filter</span>
+            <span>✓ Ephemeral OverlayFS</span>
           </div>
         </div>
 
         <div class="hero-right">
           <div class="terminal-card">
             <div class="terminal-header">
-              <div class="terminal-dots">
-                <span></span><span></span><span></span>
+              <div class="term-left">
+                <div class="term-dots">
+                  <span class="term-dot"></span>
+                  <span class="term-dot"></span>
+                  <span class="term-dot"></span>
+                </div>
+                <div class="term-title">warden-run / task_7f2a1c</div>
               </div>
-              <div class="terminal-title">warden-run / task_7f2a1c</div>
-              <div class="terminal-status-badge">
+              <div class="badge">
                 <span class="pulse-dot"></span>
                 <span id="hero-status">CONTAINED</span>
               </div>
             </div>
 
-            <div class="terminal-body" id="hero-terminal">
+            <div class="term-body" id="hero-terminal">
               <!-- Live Terminal Lines Populated via JS Engine -->
             </div>
 
-            <div class="terminal-footer">
-              <span>WARDEN RUNTIME v1.4 · REAL-TIME CONTAINMENT</span>
-              <button class="replay-btn" id="replay-hero-btn">Replay Execution ↻</button>
+            <div class="editor-actions">
+              <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim);">WARDEN RUNTIME v1.0 · REAL-TIME CONTAINMENT</span>
+              <button class="btn-secondary btn-sm" id="replay-hero-btn">Replay ↻</button>
             </div>
           </div>
 
           <div class="floating-stat-badge">
-            <div class="floating-stat-label">Blast Radius</div>
-            <div class="floating-stat-val">Host Access <span>BLOCKED</span></div>
+            <span style="color:var(--text-dim);">Blast Radius</span>
+            <span style="color:var(--green); font-weight:600;">Host Access BLOCKED</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- TRUST BAR -->
-    <div class="trust-bar">
-      <div class="wrap trust-items">
-        <span class="trust-item">MICROVM RUNTIME</span>
-        <span class="trust-item">SECCOMP-BPF</span>
-        <span class="trust-item">CGROUPS V2</span>
-        <span class="trust-item">NAMESPACE ISOLATION</span>
-        <span class="trust-item">DEFAULT-DENY EGRESS</span>
-      </div>
-    </div>
-
     <!-- PLAYGROUND SECTION -->
     <section class="page-section" id="playground">
       <div class="wrap">
         <div class="section-head">
-          <div>
-            <div class="section-tag">01 / Interactive Playground</div>
-            <h2>Simulate Untrusted AI Snippets Live</h2>
-          </div>
+          <div class="section-tag">01 / Interactive Playground</div>
+          <h2>Simulate Untrusted AI Snippets Live</h2>
           <p>
             Choose a malicious or legitimate AI code scenario below. Watch Warden evaluate kernel syscalls, enforce cgroup ceilings, and block unauthorized network channels in real time.
           </p>
         </div>
 
         <div class="playground-container">
-          <div class="playground-controls">
-            <div class="preset-selector">
-              <label>Select Threat Scenario Preset:</label>
-              <div class="preset-buttons">
-                <button class="preset-btn active" data-preset="exfiltration">
-                  <span>Exfiltrate /etc/passwd</span>
-                  <span class="risk-tag exfiltration">Cred Theft</span>
-                </button>
-                <button class="preset-btn" data-preset="malware">
-                  <span>Reverse Shell C2</span>
-                  <span class="risk-tag malicious">Malware</span>
-                </button>
-                <button class="preset-btn" data-preset="forkbomb">
-                  <span>Fork Bomb Denial</span>
-                  <span class="risk-tag malicious">Resource DoS</span>
-                </button>
-                <button class="preset-btn" data-preset="safe_pypi">
-                  <span>PyPI Package Query</span>
-                  <span class="risk-tag safe">Allowed Task</span>
+          <div class="playground-editor-pane">
+            <div class="playground-editor-card">
+              <div class="editor-header">
+                <div class="preset-buttons">
+                  <button class="preset-btn active" data-preset="exfiltration">
+                    Cred Theft (/etc/passwd)
+                  </button>
+                  <button class="preset-btn" data-preset="malware">
+                    Reverse Shell C2
+                  </button>
+                  <button class="preset-btn" data-preset="forkbomb">
+                    Fork Bomb Denial
+                  </button>
+                  <button class="preset-btn" data-preset="safe_pypi">
+                    Allowed PyPI Query
+                  </button>
+                </div>
+              </div>
+
+              <div class="editor-wrapper">
+                <textarea class="code-textarea" id="pg-code-editor" aria-label="Python code editor" spellcheck="false"></textarea>
+              </div>
+
+              <div class="editor-actions">
+                <label class="enforce-toggle-label">
+                  <span class="toggle-switch">
+                    <input type="checkbox" id="pg-enforce-toggle" checked>
+                    <span class="toggle-slider"></span>
+                  </span>
+                  <span>Warden Containment Active</span>
+                </label>
+
+                <button class="btn-primary" id="pg-run-btn">
+                  Execute in Sandbox ▶
                 </button>
               </div>
-            </div>
-
-            <div class="code-editor-wrap">
-              <div class="code-editor-header">
-                <span>python_snippet.py</span>
-                <span>Python 3.12 Slim</span>
-              </div>
-              <textarea class="code-editor" id="pg-code-editor" spellcheck="false"></textarea>
-            </div>
-
-            <div class="playground-actions">
-              <label class="toggle-switch">
-                <input type="checkbox" id="pg-enforce-toggle" checked>
-                <span class="switch"></span>
-                <span>Warden Kernel Containment (ON)</span>
-              </label>
-
-              <button class="btn-primary" id="pg-run-btn">
-                Execute in Sandbox ▶
-              </button>
             </div>
           </div>
 
-          <div class="playground-output">
+          <div class="playground-output-pane">
             <div class="output-tabs">
               <span class="output-tab active">Kernel Log Console</span>
               <span class="output-tab" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
@@ -189,7 +168,7 @@
 
             <div class="output-console" id="pg-console">
               <div class="term-line info">
-                <span class="term-text">Click 'Execute in Sandbox' to trigger Warden kernel isolation engine...</span>
+                <span>Click 'Execute in Sandbox' to trigger Warden kernel isolation engine...</span>
               </div>
             </div>
 
@@ -211,23 +190,23 @@
         </div>
 
         <!-- REAL-TIME AUDIT LOG FEED SUB-SECTION -->
-        <div style="margin-top: 32px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius-l); padding: 24px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="font-size:1.05rem; display:flex; align-items:center; gap:8px;">
-              <span style="color:var(--green)">📜</span> Live Security Audit Log Stream (PostgreSQL Sync)
+        <div style="margin-top: 32px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius-m); padding: 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h3 style="font-size:1rem; display:flex; align-items:center; gap:8px;">
+              <span>📜</span> Live Security Audit Log Stream
             </h3>
-            <span class="badge" style="font-size:0.7rem;"><span class="pulse-dot"></span> AUDIT RING BUFFER ACTIVE</span>
+            <span class="badge"><span class="pulse-dot"></span> AUDIT RING BUFFER ACTIVE</span>
           </div>
           <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.78rem; text-align:left;">
+            <table class="audit-table">
               <thead>
-                <tr style="border-bottom:1px solid var(--panel-border); color:var(--text-dim);">
-                  <th style="padding:10px;">Run ID</th>
-                  <th style="padding:10px;">Target Threat</th>
-                  <th style="padding:10px;">Containment Action</th>
-                  <th style="padding:10px;">DLP Data Leakage</th>
-                  <th style="padding:10px;">Latency</th>
-                  <th style="padding:10px;">Timestamp</th>
+                <tr>
+                  <th>Run ID</th>
+                  <th>Target Threat</th>
+                  <th>Containment Action</th>
+                  <th>DLP Data Leakage</th>
+                  <th>Latency</th>
+                  <th>Timestamp</th>
                 </tr>
               </thead>
               <tbody id="audit-feed-body">
@@ -243,10 +222,8 @@
     <section class="page-section" id="architecture">
       <div class="wrap">
         <div class="section-head">
-          <div>
-            <div class="section-tag">02 / Defense in Depth</div>
-            <h2>Five Boundaries. Zero Host Escape.</h2>
-          </div>
+          <div class="section-tag">02 / Defense in Depth</div>
+          <h2>Five Boundaries. Zero Host Escape.</h2>
           <p>
             Warden surrounds every process with 5 strict kernel security boundaries. Click any layer to inspect its underlying Linux kernel primitive and enforcement policy.
           </p>
@@ -311,11 +288,11 @@
           </div>
 
           <div class="arch-visualizer-box">
-            <h4>Live Isolation Topology</h4>
+            <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:14px;">Isolation Topology</div>
             <div class="svg-arch-container" id="arch-svg-container">
               <!-- SVG Rendered Dynamically via ArchVisualizer JS -->
             </div>
-            <div id="arch-info-box" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--panel-border);">
+            <div id="arch-info-box" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--panel-border);">
               <!-- Layer Info Rendered Here -->
             </div>
           </div>
@@ -327,10 +304,8 @@
     <section class="page-section" id="policy-builder">
       <div class="wrap">
         <div class="section-head">
-          <div>
-            <div class="section-tag">03 / Policy Engine</div>
-            <h2>Declarative YAML Security Policies</h2>
-          </div>
+          <div class="section-tag">03 / Policy Engine</div>
+          <h2>Declarative Security Policies</h2>
           <p>
             Define resource limits, filesystem permissions, and domain allowlists in plain code. Instantly export to YAML or native Python / Go SDKs.
           </p>
@@ -338,7 +313,7 @@
 
         <div class="policy-builder-layout">
           <div class="policy-form-card">
-            <h3 style="font-size:1.15rem;">Configure Sandbox Boundaries</h3>
+            <h3>Configure Sandbox Boundaries</h3>
 
             <div class="form-group">
               <label>
@@ -368,7 +343,7 @@
               <label>Allowed Network Egress Domains:</label>
               <div class="network-domains-input">
                 <input type="text" class="input-text" id="input-domain" placeholder="e.g. api.anthropic.com">
-                <button class="btn-secondary" id="btn-add-domain">+ Add</button>
+                <button class="btn-secondary btn-sm" id="btn-add-domain">+ Add</button>
               </div>
               <div class="domain-chips" id="domain-chips-container">
                 <!-- Chips rendered via JS -->
@@ -383,7 +358,7 @@
               <button class="code-tab" data-lang="python">Python SDK</button>
               <button class="code-tab" data-lang="go">Go SDK</button>
               <button class="code-tab" data-lang="curl">cURL API</button>
-              <button class="btn-ghost copy-trigger" data-copy-target="code-output-area" style="margin-left:auto; font-size:0.75rem;">📋 Copy</button>
+              <button class="btn-secondary btn-sm copy-trigger" data-copy-target="code-output-area" style="margin-left:auto;">📋 Copy</button>
             </div>
 
             <pre class="code-preview-area" id="code-output-area">
@@ -398,10 +373,8 @@
     <section class="page-section" id="attack-matrix">
       <div class="wrap">
         <div class="section-head">
-          <div>
-            <div class="section-tag">04 / Threat Model</div>
-            <h2>Attack Matrix vs Warden Containment</h2>
-          </div>
+          <div class="section-tag">04 / Threat Model</div>
+          <h2>Attack Matrix vs Warden Containment</h2>
           <p>
             Comparing bare host / standard docker setups against Warden kernel-enforced sandboxes across common AI agent attack vectors.
           </p>
@@ -415,7 +388,7 @@
         <div class="metrics-row" id="specs">
           <div class="metric-card">
             <strong>~38<span>ms</span></strong>
-            <p>MicroVM Warm Cold-Start</p>
+            <p>MicroVM Cold-Start</p>
           </div>
           <div class="metric-card">
             <strong>0<span>B</span></strong>
@@ -442,8 +415,8 @@
             <p>Embed Warden into your Python, Go, or Node workflows in less than 5 minutes.</p>
           </div>
           <div>
-            <a href="#playground" class="btn-primary" style="padding:14px 28px; font-size:1rem;">
-              Get Started Now <span>→</span>
+            <a href="#playground" class="btn-primary" style="padding:12px 24px; font-size:0.95rem;">
+              Get Started Now →
             </a>
           </div>
         </div>

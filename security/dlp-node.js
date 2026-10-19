@@ -1,23 +1,40 @@
 /* Warden Backend DLP & Secret Redactor for Node.js */
 
-const SECRET_PATTERNS = [
-  { name: "AWS_ACCESS_KEY", regex: /AKIA[0-9A-Z]{16}/g, replacement: "[REDACTED_AWS_ACCESS_KEY]" },
-  { name: "AWS_SECRET_KEY", regex: /(aws_secret_access_key|secret_key)\s*=\s*['"][0-9a-zA-Z/+]{40}['"]/gi, replacement: "$1 = '[REDACTED_AWS_SECRET_KEY]'" },
-  { name: "OPENAI_API_KEY", regex: /sk-[a-zA-Z0-9]{32,}/g, replacement: "[REDACTED_OPENAI_API_KEY]" },
-  { name: "GITHUB_TOKEN", regex: /gh[pousr]_[a-zA-Z0-9]{36,}/g, replacement: "[REDACTED_GITHUB_TOKEN]" },
-  { name: "PRIVATE_KEY", regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----[\s\S]*?-----END \1 PRIVATE KEY-----/g, replacement: "[REDACTED_PRIVATE_KEY]" }
-];
+const { SECRET_PATTERNS, COVERT_EXFILTRATION_PATTERNS } = require('../shared/dlp-patterns');
 
 function sanitizeCode(code) {
   if (!code || typeof code !== 'string') return code;
   let clean = code;
   SECRET_PATTERNS.forEach(pat => {
-    clean = clean.replace(pat.regex, pat.replacement);
+    // Reset regex index if global
+    pat.regex.lastIndex = 0;
+    clean = clean.replace(pat.regex, pat.mask);
   });
   return clean;
 }
 
+function inspectExfiltrationRisk(code) {
+  if (!code || typeof code !== 'string') return { hasHighRisk: false, risks: [] };
+  const detectedRisks = [];
+  COVERT_EXFILTRATION_PATTERNS.forEach(pat => {
+    pat.regex.lastIndex = 0;
+    if (pat.regex.test(code)) {
+      detectedRisks.push({
+        name: pat.name,
+        risk: pat.risk,
+        description: pat.desc
+      });
+    }
+  });
+  return {
+    hasHighRisk: detectedRisks.some(r => r.risk === "CRITICAL" || r.risk === "HIGH"),
+    risks: detectedRisks
+  };
+}
+
 module.exports = {
   sanitizeCode,
-  SECRET_PATTERNS
+  inspectExfiltrationRisk,
+  SECRET_PATTERNS,
+  COVERT_EXFILTRATION_PATTERNS
 };

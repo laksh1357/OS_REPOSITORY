@@ -2,6 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../db');
 const dlp = require('../security/dlp-node');
 
@@ -10,12 +11,13 @@ router.post('/run', async (req, res, next) => {
   try {
     const { code, policyName = 'default-python-sandbox', isEnforced = true } = req.body;
 
-    if (!code) {
+    if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Missing required string parameter: code' });
     }
 
-    const sanitizedCode = dlp.sanitizeCode(code);
-    const runId = 'run_' + Math.random().toString(36).substring(2, 10);
+    // Use pre-sanitized code if middleware ran, or sanitize directly
+    const sanitizedCode = req.sanitizedCode || dlp.sanitizeCode(code);
+    const runId = 'run_' + crypto.randomBytes(4).toString('hex');
     const timestamp = new Date().toISOString();
 
     // Pattern evaluation
@@ -58,6 +60,7 @@ router.post('/run', async (req, res, next) => {
     }
 
     const executionTimeMs = parseFloat((Math.random() * 5 + 35).toFixed(2));
+    const snippetHash = 'sha256:' + crypto.createHash('sha256').update(sanitizedCode).digest('hex').substring(0, 16);
 
     // Persist to PostgreSQL if connected
     let dbAuditLog = null;
@@ -65,14 +68,14 @@ router.post('/run', async (req, res, next) => {
       dbAuditLog = await db.recordSandboxRun({
         runId,
         codeSnippet: sanitizedCode,
-        snippetHash: 'sha256:' + Math.random().toString(36).substring(2, 12),
+        snippetHash,
         status,
         isViolated,
         violationType,
         violationDetails,
         executionTimeMs
       });
-    } catch (err) {
+    } catch (_) {
       // In-memory fallback
     }
 

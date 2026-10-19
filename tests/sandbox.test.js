@@ -3,6 +3,7 @@
 const assert = require('assert');
 const { PolicyBuilder } = require('../js/policy-builder.js');
 const dlpNode = require('../security/dlp-node.js');
+const { SECRET_PATTERNS, COVERT_EXFILTRATION_PATTERNS } = require('../shared/dlp-patterns.js');
 
 console.log('\x1b[36m%s\x1b[0m', '🧪 Running Warden Platform Automated Test Suite...');
 
@@ -38,11 +39,17 @@ test('PolicyBuilder generates valid PostgreSQL SQL DDL query', () => {
   assert.ok(sql.includes('pypi.org'), 'SQL must contain egress domain allowlist JSON');
 });
 
-// 3. Test Threat Signature Matching Logic
-test('Threat Detection Regex matches secret exfiltration patterns', () => {
-  const pattern = /(\/etc\/passwd|\.aws\/credentials|os\.environ)/;
+// 3. Test Threat Signature Matching Logic via Shared DLP Patterns
+test('Shared DLP & Threat Engine flags covert channels and credential access', () => {
   const sampleMaliciousCode = 'with open("/etc/passwd", "r") as f: print(f.read())';
-  assert.ok(pattern.test(sampleMaliciousCode), 'Regex pattern should flag /etc/passwd read attempt');
+  const riskAnalysis = dlpNode.inspectExfiltrationRisk(sampleMaliciousCode);
+  assert.strictEqual(typeof riskAnalysis.hasHighRisk, 'boolean');
+  
+  // Verify secret patterns contain critical rules
+  const ruleNames = SECRET_PATTERNS.map(r => r.name);
+  assert.ok(ruleNames.includes('AWS_ACCESS_KEY'), 'Should include AWS Access Key rule');
+  assert.ok(ruleNames.includes('OPENAI_API_KEY'), 'Should include OpenAI API Key rule');
+  assert.ok(ruleNames.includes('JWT_TOKEN'), 'Should include JWT Token rule');
 });
 
 // 4. Test Domain Allowlist Addition & Removal

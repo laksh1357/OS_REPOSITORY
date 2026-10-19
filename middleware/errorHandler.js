@@ -11,10 +11,20 @@ function requestSanitizer(req, res, next) {
 
 function errorHandler(err, req, res, next) {
   console.error('[WARDEN SERVER ERROR]', err.stack || err.message);
-  res.status(err.status || 500).json({
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  const status = err.status || 500;
+  const message = isProduction && status === 500 
+    ? 'Internal Server Error' 
+    : (err.message || 'Internal Server Error');
+
+  res.status(status).json({
     error: {
-      message: err.message || 'Internal Server Error',
-      status: err.status || 500,
+      message,
+      status,
       timestamp: new Date().toISOString()
     }
   });

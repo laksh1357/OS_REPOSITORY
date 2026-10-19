@@ -36,13 +36,13 @@ export class AuditFeed {
   render() {
     if (!this.tableBodyEl) return;
     this.tableBodyEl.innerHTML = this.history.map(item => `
-      <tr style="border-bottom:1px solid rgba(255,255,255,0.03); transition:var(--transition-fast);">
-        <td style="padding:10px; color:var(--green); font-weight:600;">${item.runId}</td>
-        <td style="padding:10px; color:var(--text);">${item.threat}</td>
-        <td style="padding:10px;"><span style="background:rgba(255,197,107,0.15); color:var(--amber); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${item.action}</span></td>
-        <td style="padding:10px; color:var(--green);">${item.dlp}</td>
-        <td style="padding:10px; color:var(--text-dim);">${item.latency}</td>
-        <td style="padding:10px; color:var(--text-dim);">${item.timestamp}</td>
+      <tr class="audit-row">
+        <td class="audit-cell audit-cell-id">${item.runId}</td>
+        <td class="audit-cell audit-cell-threat">${item.threat}</td>
+        <td class="audit-cell"><span class="audit-action-badge">${item.action}</span></td>
+        <td class="audit-cell audit-cell-dlp">${item.dlp}</td>
+        <td class="audit-cell audit-cell-dim">${item.latency}</td>
+        <td class="audit-cell audit-cell-dim">${item.timestamp}</td>
       </tr>
     `).join("");
   }
