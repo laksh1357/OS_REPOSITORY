@@ -7,6 +7,9 @@ node_modules/
 *.pem
 warden.yaml
 
+# Deployment
+.vercel
+
 # Database & Runtime Data
 postgres_data/
 *.log
