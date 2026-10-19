@@ -1,43 +1,46 @@
 # Warden — OS-Level Sandboxing for AI-Generated Code
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Security: Kernel Contained](https://img.shields.io/badge/Security-Seccomp--BPF%20%7C%20Cgroups%20v2-brightgreen.svg)](#5-layer-isolation-architecture)
+[![Security: Kernel Contained](https://img.shields.io/badge/Security-Seccomp--BPF%20%7C%20Cgroups%20v2-brightgreen.svg)](#-5-layer-isolation-architecture)
 [![DLP: Zero Data Leakage](https://img.shields.io/badge/DLP-Zero%20Data%20Leakage-success.svg)](#-zero-data-leakage--dlp-security-system)
 [![Database: PostgreSQL 16](https://img.shields.io/badge/Database-PostgreSQL%2016-blue.svg)](#-postgresql-database-integration)
-[![Cold Start](https://img.shields.io/badge/Cold%20Start-~38ms-success.svg)](#performance--benchmarks)
+[![Cold Start](https://img.shields.io/badge/Cold%20Start-~38ms-success.svg)](#-performance--benchmarks)
 
-**Warden** is an OS-level kernel sandboxing and execution containment system designed specifically to execute untrusted AI-generated code snippets inside disposable, isolated environments before they can compromise host filesystems, network interfaces, credentials, or system processes.
+**Warden** is an OS-level kernel sandboxing and execution containment platform designed specifically to execute untrusted AI-generated code snippets inside disposable, isolated environments before they can compromise host filesystems, network interfaces, credentials, or system processes.
 
 ---
 
 ## 🛡️ Key Features
 
-- **Disposable MicroVM Isolation**: Spawns ephemeral kernel-isolated execution environments in ~38ms.
+- **Disposable MicroVM Isolation**: Ephemeral kernel-isolated execution environments spawned in ~38ms.
 - **Zero Data Leakage (DLP Shield)**: Real-time secret redactor, PII masker, covert DNS/ICMP channel interceptor, and 3-pass DoD 5220.22-M memory zeroing.
-- **5-Layer Security Boundary**: Multi-tiered protection enforcing syscall filtering, namespace separation, cgroup resource limits, ephemeral storage, and default-deny egress policies.
+- **5-Layer Security Boundary**: Multi-tiered defense enforcing syscall filtering, namespace separation, cgroup resource limits, ephemeral storage, and default-deny egress policies.
 - **PostgreSQL Database Integration**: Persistent storage for isolation policies, execution audit logs, threat signature patterns, and client API keys.
-- **Interactive Live Web Playground**: Built-in interactive browser dashboard to test malicious code snippets (secret theft, reverse shells, fork bombs) against Warden enforcement.
-- **Declarative YAML & SQL Policies**: Simple human-readable policy files and SQL migration DDLs.
-- **Multi-Language SDKs**: Native support for Python, Go, Node.js (PostgreSQL `pg`), and REST HTTP API.
+- **Interactive Live Web Dashboard**: Developer-focused dashboard with a live execution terminal, 5-layer visualizer, policy builder, and threat comparison matrix.
+- **Declarative YAML & SQL Policies**: Export policies directly to YAML, PostgreSQL SQL, Python SDK, Go SDK, or cURL.
+- **CLI & REST API**: Full-featured command-line tool (`bin/warden.js`) and Express.js REST API with automated request sanitization.
 
 ---
 
 ## 🔐 Zero Data Leakage & DLP Security System
 
-Warden integrates a multi-layer Data Loss Prevention (DLP) engine (`security/dlp-engine.js` & `security/dlp-node.js`) to guarantee zero secret leakage across execution pipelines:
+Warden integrates a unified Data Loss Prevention (DLP) engine (`shared/dlp-patterns.js`, `security/dlp-node.js`, and `security/dlp-engine.js`) to guarantee zero secret leakage across execution pipelines:
 
 ### 1. Pre-Execution Secret Sanitizer & Redactor
 Scans code and output streams for sensitive credentials and automatically masks them before storage or logging:
-- **AWS Keys** (`AKIA...`) -> `[REDACTED_AWS_KEY]`
-- **OpenAI API Keys** (`sk-...`) -> `[REDACTED_OPENAI_KEY]`
+- **AWS Keys** (`AKIA...`) -> `[REDACTED_AWS_ACCESS_KEY]`
+- **OpenAI API Keys** (`sk-...`) -> `[REDACTED_OPENAI_API_KEY]`
 - **GitHub Tokens** (`ghp_...`) -> `[REDACTED_GITHUB_TOKEN]`
 - **Private RSA / SSH Keys** -> `[REDACTED_PRIVATE_KEY]`
+- **JSON Web Tokens (JWT)** -> `[REDACTED_JWT_TOKEN]`
+- **Database Connection URIs** -> `[REDACTED_DB_URI]`
 
 ### 2. Covert Channel & DNS Tunneling Interceptor
 Detects non-standard data exfiltration channels designed to bypass network filters:
 - **DNS Tunneling Queries** (`nslookup stolen.evil.com`)
 - **Base64 / Hex Exfiltration Wrappers**
 - **Raw ICMP Ping Socket Tunneling**
+- **Environment Variable Harvesting** (`os.environ`, `/proc/self/environ`)
 
 ### 3. Ephemeral Memory & Storage Shredder
 Upon sandbox teardown, OverlayFS scratchpads (`/tmp`) undergo a **DoD 5220.22-M 3-Pass Zeroing** protocol before unmounting to prevent RAM dump forensics or residual disk leaks.
@@ -87,28 +90,89 @@ docker-compose up -d
 
 ---
 
+## ⚡ Quick Start
+
+### 1. Installation
+```bash
+git clone https://github.com/laksh1357/OS_REPOSITORY.git
+cd OS_REPOSITORY
+npm install
+```
+
+### 2. Run the Automated Test Suite
+```bash
+npm test
+```
+
+### 3. Start the Server
+```bash
+npm start
+# Server starts on http://localhost:8080
+```
+
+### 4. CLI Usage
+```bash
+# Display CLI version and help
+node bin/warden.js --help
+
+# Initialize a default policy file (warden.yaml)
+node bin/warden.js policy init
+
+# Execute a Python script inside the simulated sandbox
+node bin/warden.js run snippet.py
+```
+
+---
+
 ## 📁 Repository Structure
 
 ```
 OS_REPOSITORY/
-├── security/
-│   ├── dlp-engine.js     # Browser/Frontend DLP Secret Redactor & Covert Scanner
-│   └── dlp-node.js       # Backend Node.js Secret Sanitizer Module
-├── db/
-│   ├── schema.sql        # PostgreSQL DDL & DML Schema Definitions
-│   └── index.js          # Node.js PostgreSQL Database Client & DAO Layer
 ├── bin/
-│   └── warden.js         # Executable CLI Binary Tool
+│   └── warden.js             # Executable CLI tool
+├── css/
+│   ├── base.css              # Design tokens, typography & accessible reset
+│   ├── layout.css            # Grid layouts, navigation & responsive breakpoints
+│   ├── components.css        # Developer UI components, cards, tables & sliders
+│   └── style.css             # Entrypoint bundle
+├── db/
+│   ├── index.js              # PostgreSQL client, health check & DAO layer
+│   └── schema.sql            # PostgreSQL DDL & default seed rows
+├── js/
+│   ├── app.js                # Slim client orchestrator
+│   ├── arch-visualizer.js    # Interactive SVG 5-layer topology
+│   ├── attack-matrix.js      # Threat scenario matrix renderer
+│   ├── audit-feed.js         # Real-time audit log stream
+│   ├── policy-builder.js     # Declarative policy state & code generator
+│   ├── sandbox-engine.js     # Sandbox execution simulation engine
+│   └── views/                # Modular view controllers
+│       ├── architecture.js   # Layer visualizer lifecycle
+│       ├── clipboard.js      # Reusable copy trigger
+│       ├── hero.js           # Hero terminal demo & replay
+│       ├── playground.js     # Code editor & preset execution
+│       └── policy.js         # Slider inputs & safe domain chips
+├── middleware/
+│   └── errorHandler.js       # Request sanitizer & centralized error handler
+├── routes/
+│   ├── health.js             # Service & database health probe
+│   ├── policies.js           # Policy retrieval & creation routes
+│   └── sandbox.js            # Code execution & threat evaluation route
+├── security/
+│   ├── dlp-engine.js         # Browser DLP engine
+│   └── dlp-node.js           # Node.js DLP engine
+├── shared/
+│   └── dlp-patterns.js       # Unified single-source DLP & threat patterns
 ├── tests/
-│   └── sandbox.test.js   # Automated Test Suite (5/5 Passing)
-├── server.js             # Express.js REST API Server with DLP Shield
-├── docker-compose.yml    # PostgreSQL 16 Service Container Setup
-├── index.html            # Master Web Dashboard & Interactive Playground
-└── README.md             # Project Documentation
+│   └── sandbox.test.js       # Automated test suite (5 passing tests)
+├── .env.example              # Environment variables template
+├── docker-compose.yml        # PostgreSQL container configuration
+├── index.html                # Developer dashboard & interactive playground
+├── package.json              # Project manifest & npm scripts
+└── server.js                 # Express.js REST API server
 ```
 
 ---
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.

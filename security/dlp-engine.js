@@ -1,21 +1,8 @@
 /* Warden Data Loss Prevention (DLP) & Zero Data Leakage Engine */
 
-export const SECRET_PATTERNS = [
-  { name: "AWS_ACCESS_KEY", regex: /AKIA[0-9A-Z]{16}/g, mask: "[REDACTED_AWS_KEY]" },
-  { name: "AWS_SECRET_KEY", regex: /(aws_secret_access_key|secret_key|AWS_SECRET)\s*[:=]\s*['"]?[0-9a-zA-Z/+]{40}['"]?/gi, mask: "$1 = '[REDACTED_AWS_SECRET]'" },
-  { name: "OPENAI_API_KEY", regex: /sk-[a-zA-Z0-9]{32,}/g, mask: "[REDACTED_OPENAI_KEY]" },
-  { name: "GITHUB_TOKEN", regex: /gh[pousr]_[a-zA-Z0-9]{36,}/g, mask: "[REDACTED_GITHUB_TOKEN]" },
-  { name: "PRIVATE_RSA_KEY", regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----[\s\S]*?-----END \1 PRIVATE KEY-----/g, mask: "[REDACTED_PRIVATE_KEY]" },
-  { name: "JWT_TOKEN", regex: /eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, mask: "[REDACTED_JWT_TOKEN]" },
-  { name: "DATABASE_URI", regex: /(postgres|mysql|mongodb):\/\/[^:]+:[^@]+@[^/]+\/[^\s]+/g, mask: "[REDACTED_DB_URI]" }
-];
+import { SECRET_PATTERNS, COVERT_EXFILTRATION_PATTERNS } from '../shared/dlp-patterns.js';
 
-export const COVERT_EXFILTRATION_PATTERNS = [
-  { name: "DNS_TUNNELING", regex: /(nslookup|dig|socket\.gethostbyname).*\.(attacker|evil|c2)\./i, risk: "HIGH", desc: "DNS Tunneling exfiltration vector detected" },
-  { name: "BASE64_ENCODING", regex: /(base64\.b64encode|b64encode\(|zlib\.compress)/i, risk: "MEDIUM", desc: "Encoded binary payload exfiltration wrapper detected" },
-  { name: "ICMP_RAW_SOCKET", regex: /(SOCK_RAW|IPPROTO_ICMP)/i, risk: "CRITICAL", desc: "Raw ICMP socket creation for ping covert channel" },
-  { name: "ENV_VAR_HARVEST", regex: /(os\.environ|process\.env|\/proc\/self\/environ)/i, risk: "CRITICAL", desc: "Process environment harvesting for cloud secrets" }
-];
+export { SECRET_PATTERNS, COVERT_EXFILTRATION_PATTERNS };
 
 export class DLPEngine {
   constructor() {
@@ -24,18 +11,20 @@ export class DLPEngine {
 
   /**
    * Redact secrets, tokens, and credentials from text/code before logging or execution
+   * @param {string} text - Untrusted output text to sanitize
+   * @returns {string} Sanitized output
    */
   sanitizeOutput(text) {
     if (!text || typeof text !== 'string') return text;
     let sanitized = text;
 
     SECRET_PATTERNS.forEach(pattern => {
-      // Direct replace without regex.test() to prevent lastIndex state bugs on global regexes
-      const prevLength = sanitized.length;
-      sanitized = sanitized.replace(pattern.regex, pattern.mask);
-      if (sanitized.length !== prevLength) {
-        this.redactionCount++;
+      pattern.regex.lastIndex = 0;
+      const matches = sanitized.match(pattern.regex);
+      if (matches) {
+        this.redactionCount += matches.length;
       }
+      sanitized = sanitized.replace(pattern.regex, pattern.mask);
     });
 
     return sanitized;
@@ -43,11 +32,18 @@ export class DLPEngine {
 
   /**
    * Scan code snippet for covert data exfiltration attempts and PII leakage
+   * @param {string} code - Source code to inspect
+   * @returns {{ hasHighRisk: boolean, risks: Array<{ name: string, risk: string, description: string }> }}
    */
   inspectExfiltrationRisk(code) {
+    if (!code || typeof code !== 'string') {
+      return { hasHighRisk: false, risks: [] };
+    }
+
     const detectedRisks = [];
 
     COVERT_EXFILTRATION_PATTERNS.forEach(pat => {
+      pat.regex.lastIndex = 0;
       if (pat.regex.test(code)) {
         detectedRisks.push({
           name: pat.name,
@@ -65,6 +61,7 @@ export class DLPEngine {
 
   /**
    * Ephemeral OverlayFS Shredding Protocol simulation
+   * @returns {{ passes: number, protocol: string, status: string, residueBytes: number }}
    */
   shredStorageBuffer() {
     return {

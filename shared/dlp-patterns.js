@@ -1,6 +1,6 @@
 /* Warden DLP Shared Threat & Secret Patterns */
 
-const SECRET_PATTERNS = [
+export const SECRET_PATTERNS = [
   { name: "AWS_ACCESS_KEY", regex: /AKIA[0-9A-Z]{16}/g, mask: "[REDACTED_AWS_ACCESS_KEY]" },
   { name: "AWS_SECRET_KEY", regex: /(aws_secret_access_key|secret_key|AWS_SECRET)\s*[:=]\s*['"]?[0-9a-zA-Z/+]{40}['"]?/gi, mask: "$1 = '[REDACTED_AWS_SECRET_KEY]'" },
   { name: "OPENAI_API_KEY", regex: /sk-[a-zA-Z0-9]{32,}/g, mask: "[REDACTED_OPENAI_API_KEY]" },
@@ -10,23 +10,9 @@ const SECRET_PATTERNS = [
   { name: "DATABASE_URI", regex: /(postgres|mysql|mongodb):\/\/[^:]+:[^@]+@[^/]+\/[^\s]+/g, mask: "[REDACTED_DB_URI]" }
 ];
 
-const COVERT_EXFILTRATION_PATTERNS = [
+export const COVERT_EXFILTRATION_PATTERNS = [
   { name: "DNS_TUNNELING", regex: /(nslookup|dig|socket\.gethostbyname).*\.(attacker|evil|c2)\./i, risk: "HIGH", desc: "DNS Tunneling exfiltration vector detected" },
   { name: "BASE64_ENCODING", regex: /(base64\.b64encode|b64encode\(|zlib\.compress)/i, risk: "MEDIUM", desc: "Encoded binary payload exfiltration wrapper detected" },
   { name: "ICMP_RAW_SOCKET", regex: /(SOCK_RAW|IPPROTO_ICMP)/i, risk: "CRITICAL", desc: "Raw ICMP socket creation for ping covert channel" },
   { name: "ENV_VAR_HARVEST", regex: /(os\.environ|process\.env|\/proc\/self\/environ)/i, risk: "CRITICAL", desc: "Process environment harvesting for cloud secrets" }
 ];
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    SECRET_PATTERNS,
-    COVERT_EXFILTRATION_PATTERNS
-  };
-}
-
-if (typeof globalThis !== 'undefined') {
-  globalThis.WARDEN_PATTERNS = {
-    SECRET_PATTERNS,
-    COVERT_EXFILTRATION_PATTERNS
-  };
-}
