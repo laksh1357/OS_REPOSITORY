@@ -34,11 +34,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json());
 
-// Explicit static serving of frontend assets only to prevent leaking backend/config files
-app.use('/css', express.static(path.join(__dirname, 'css')));
-app.use('/js', express.static(path.join(__dirname, 'js')));
-app.use('/security', express.static(path.join(__dirname, 'security')));
-app.use('/shared', express.static(path.join(__dirname, 'shared')));
+// Serve static frontend assets exclusively from public/
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routers
@@ -57,7 +53,7 @@ app.get('*', (req, res, next) => {
       }
     });
   }
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Global Error Handler

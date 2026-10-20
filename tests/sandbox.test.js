@@ -1,7 +1,7 @@
 /* Warden Automated Test Suite */
 
 const assert = require('assert');
-const { PolicyBuilder } = require('../js/policy-builder.js');
+const { PolicyBuilder } = require('../public/js/policy-builder.js');
 const dlpNode = require('../security/dlp-node.js');
 const { SECRET_PATTERNS } = require('../shared/dlp-patterns.js');
 const { errorHandler, requestSanitizer } = require('../middleware/errorHandler.js');
