@@ -27,6 +27,7 @@
 
       <ul class="nav-links">
         <li><a href="#playground" class="nav-link">Playground</a></li>
+        <li><a href="#live-dashboard" class="nav-link">Live Dashboard</a></li>
         <li><a href="#architecture" class="nav-link">5-Layer Architecture</a></li>
         <li><a href="#policy-builder" class="nav-link">Policy Builder</a></li>
         <li><a href="#attack-matrix" class="nav-link">Attack Matrix</a></li>
@@ -366,6 +367,105 @@
             </pre>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- LIVE DASHBOARD SECTION -->
+    <section class="page-section" id="live-dashboard">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="section-tag">05 / Live Telemetry</div>
+          <h2>Real Execution Dashboard</h2>
+          <p>
+            Live metrics from the actual Python execution engine. Run the playground above to see real telemetry — exit codes, violation evidence, DLP events, and audit chain integrity.
+          </p>
+        </div>
+
+        <!-- Platform Capability Banner -->
+        <div class="capability-banner" id="capability-banner">
+          <div class="cap-loading">Loading platform capabilities...</div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="dash-metrics-row" id="dash-metrics-row">
+          <div class="dash-metric-card">
+            <div class="dash-metric-value" id="dash-total-runs">—</div>
+            <div class="dash-metric-label">Total Executions</div>
+          </div>
+          <div class="dash-metric-card">
+            <div class="dash-metric-value dash-green" id="dash-contained">—</div>
+            <div class="dash-metric-label">Threats Contained</div>
+          </div>
+          <div class="dash-metric-card">
+            <div class="dash-metric-value dash-amber" id="dash-avg-latency">—</div>
+            <div class="dash-metric-label">Avg Exec Time</div>
+          </div>
+          <div class="dash-metric-card">
+            <div class="dash-metric-value dash-blue" id="dash-dlp-redactions">—</div>
+            <div class="dash-metric-label">DLP Redactions</div>
+          </div>
+          <div class="dash-metric-card">
+            <div class="dash-metric-value" id="dash-chain-status">—</div>
+            <div class="dash-metric-label">Chain Integrity</div>
+          </div>
+        </div>
+
+        <!-- Security Benchmark Panel -->
+        <div class="dash-panel" style="margin-top: 24px;">
+          <div class="dash-panel-header">
+            <h3>Security Benchmark Suite</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="badge" id="bench-status-badge"><span class="pulse-dot"></span> IDLE</span>
+              <button class="btn-primary btn-sm" id="bench-run-btn">▶ Run All Benchmarks</button>
+            </div>
+          </div>
+          <div id="bench-results-container">
+            <div class="bench-placeholder">Click "Run All Benchmarks" to execute the security test suite against the real sandbox engine.</div>
+          </div>
+        </div>
+
+        <!-- Enforcement Manifest Panel -->
+        <div class="dash-panel" style="margin-top: 24px;">
+          <div class="dash-panel-header">
+            <h3>Policy Enforcement Manifest</h3>
+            <button class="btn-secondary btn-sm" id="manifest-load-btn">Load Manifest</button>
+          </div>
+          <div id="manifest-container">
+            <div class="bench-placeholder">Click "Load Manifest" to see which security mechanisms are ENFORCED, UNVERIFIED, or UNSUPPORTED on this platform.</div>
+          </div>
+        </div>
+
+        <!-- Live Audit Chain Panel -->
+        <div class="dash-panel" style="margin-top: 24px;">
+          <div class="dash-panel-header">
+            <h3>Live Audit Chain</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="badge" id="chain-integrity-badge"><span class="pulse-dot"></span> UNVERIFIED</span>
+              <button class="btn-secondary btn-sm" id="audit-refresh-btn">↻ Refresh</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Run ID</th>
+                  <th>Status</th>
+                  <th>Exit</th>
+                  <th>Time</th>
+                  <th>DLP</th>
+                  <th>Violations</th>
+                  <th>Chain Hash</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="live-audit-body">
+                <tr><td colspan="9" style="text-align:center; color:var(--text-dim); padding:20px;">No executions yet — run a code snippet in the Playground above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </section>
 

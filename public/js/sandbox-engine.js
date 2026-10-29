@@ -182,10 +182,17 @@ export class SandboxEngine {
     for (const item of logs) {
       // Sanitize all log output strings through DLP Engine
       const sanitizedText = this.dlp.sanitizeOutput(item.text);
+      // HTML-escape before inserting into innerHTML to prevent XSS
+      const escaped = sanitizedText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
       const line = document.createElement("div");
       line.className = `term-line ${item.type}`;
-      line.innerHTML = `<span class="term-text">${sanitizedText}</span>`;
+      line.innerHTML = `<span class="term-text">${escaped}</span>`;
       this.consoleEl.appendChild(line);
       this.consoleEl.scrollTop = this.consoleEl.scrollHeight;
       await new Promise(r => setTimeout(r, delayMs));

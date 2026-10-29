@@ -1,12 +1,14 @@
-/* Warden Automated Test Suite */
+/* Warden Automated Test Suite — v2 (with real execution engine tests) */
 
 const assert = require('assert');
 const { PolicyBuilder } = require('../public/js/policy-builder.js');
 const dlpNode = require('../security/dlp-node.js');
 const { SECRET_PATTERNS } = require('../shared/dlp-patterns.js');
 const { errorHandler, requestSanitizer } = require('../middleware/errorHandler.js');
+const { evaluatePolicy } = require('../engine/policy-enforcer.js');
+const { appendEvent, verifyChain, buildExecutionEvent, getChainStatus } = require('../engine/audit-chain.js');
 
-console.log('\x1b[36m%s\x1b[0m', '🧪 Running Warden Platform Automated Test Suite...');
+console.log('\x1b[36m%s\x1b[0m', '🧪 Running Warden Platform Automated Test Suite v2...');
 
 let passed = 0;
 let failed = 0;
@@ -111,6 +113,90 @@ test('Error Handler middleware returns structured JSON payload', () => {
 
   assert.strictEqual(responseStatus, 503, 'Status code should match err.status');
   assert.ok(responsePayload && responsePayload.error, 'Payload must contain error object');
+});
+
+console.log('\n----------------------------------------');
+console.log(`Test Results: \x1b[32m${passed} Passed\x1b[0m, \x1b[31m${failed} Failed\x1b[0m`);
+
+// ── PART 2: Engine & Enforcement Tests (synchronous / unit-level) ────────────
+console.log('\n\x1b[36m%s\x1b[0m', '⚙️  Policy Enforcer & Audit Chain Tests...');
+
+// 8. Test Policy Enforcement Manifest
+test('PolicyEnforcer produces enforcement manifest with correct mechanism count', () => {
+  const policy = { name: 'test-policy', timeoutMs: 5000, memoryMb: 128, maxProcesses: 4, writablePaths: ['/tmp'], egressAllowlist: [] };
+  const manifest = evaluatePolicy(policy);
+  assert.ok(manifest.enforcements.length >= 14, `Expected >= 14 mechanisms, got ${manifest.enforcements.length}`);
+  assert.ok(typeof manifest.summary.enforced === 'number', 'summary.enforced must be a number');
+  assert.ok(manifest.summary.enforced + manifest.summary.unverified + manifest.summary.unsupported + manifest.summary.failed === manifest.summary.total, 'Summary counts must add up');
+});
+
+// 9. Timeout mechanism is always ENFORCED
+test('PolicyEnforcer marks TIMEOUT as ENFORCED on all platforms', () => {
+  const manifest = evaluatePolicy({});
+  const timeout = manifest.enforcements.find(e => e.mechanism === 'TIMEOUT');
+  assert.ok(timeout, 'TIMEOUT enforcement must exist');
+  assert.strictEqual(timeout.status, 'ENFORCED', 'TIMEOUT must be ENFORCED');
+});
+
+// 10. DLP_REDACTION mechanism is always ENFORCED
+test('PolicyEnforcer marks DLP_REDACTION as ENFORCED on all platforms', () => {
+  const manifest = evaluatePolicy({});
+  const dlpMech = manifest.enforcements.find(e => e.mechanism === 'DLP_REDACTION');
+  assert.ok(dlpMech, 'DLP_REDACTION enforcement must exist');
+  assert.strictEqual(dlpMech.status, 'ENFORCED', 'DLP_REDACTION must be ENFORCED');
+});
+
+// 11. Audit chain integrity (empty chain)
+test('AuditChain verifyChain returns valid on empty chain', () => {
+  const result = verifyChain();
+  assert.strictEqual(result.valid, true, 'Empty chain must be valid');
+});
+
+// 12. Audit chain appends events and maintains integrity
+test('AuditChain appendEvent maintains hash chain integrity', () => {
+  const event1 = { eventType: 'TEST', runId: 'test_01', status: 'CLEAN', exitCode: 0, executionMs: 42 };
+  const event2 = { eventType: 'TEST', runId: 'test_02', status: 'CONTAINED', exitCode: 1, executionMs: 99 };
+  const e1 = appendEvent(event1);
+  const e2 = appendEvent(event2);
+  assert.ok(e1.chainHash, 'Entry must have chainHash');
+  assert.ok(e2.chainHash, 'Entry must have chainHash');
+  assert.notStrictEqual(e1.chainHash, e2.chainHash, 'Sequential hashes must differ');
+  const integrity = verifyChain();
+  assert.strictEqual(integrity.valid, true, `Chain must remain valid after appends. Broken at: ${integrity.firstBrokenAt}`);
+});
+
+// 13. buildExecutionEvent derives correct status
+test('AuditChain buildExecutionEvent derives CONTAINED status from violations', () => {
+  const mockResult = {
+    runId: 'test_exec_01',
+    timestamp: new Date().toISOString(),
+    executionMs: 55,
+    exitCode: 1,
+    signal: 'SIGKILL',
+    timedOut: false,
+    outputLimitHit: false,
+    stdout: '',
+    stderr: '',
+    stdoutBytes: 0,
+    stderrBytes: 0,
+    violations: [{ type: 'EGRESS_DENIED', severity: 'HIGH', evidence: 'test', enforced: true }],
+    dlpRedacted: false,
+    platform: process.platform,
+    snippetHash: 'sha256:testabcd',
+    policy: { name: 'test-policy', timeoutMs: 5000 },
+  };
+  const event = buildExecutionEvent(mockResult, 'test-policy');
+  assert.strictEqual(event.eventType, 'EXECUTION');
+  assert.strictEqual(event.status, 'CONTAINED', 'Status must be CONTAINED when enforced violations exist');
+  assert.strictEqual(event.violations.length, 1);
+});
+
+// 14. Chain status reflects append count
+test('AuditChain getChainStatus returns updated length after appends', () => {
+  const before = getChainStatus();
+  appendEvent({ eventType: 'STATUS_TEST', runId: 'status_check', status: 'CLEAN', exitCode: 0, executionMs: 1 });
+  const after = getChainStatus();
+  assert.ok(after.length >= before.length, 'Chain length must not decrease');
 });
 
 console.log('\n----------------------------------------');

@@ -35,14 +35,21 @@ export class AuditFeed {
 
   render() {
     if (!this.tableBodyEl) return;
+    // Helper to escape HTML and prevent XSS from injected audit data
+    const esc = (str) => String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
     this.tableBodyEl.innerHTML = this.history.map(item => `
       <tr class="audit-row">
-        <td class="audit-cell audit-cell-id">${item.runId}</td>
-        <td class="audit-cell audit-cell-threat">${item.threat}</td>
-        <td class="audit-cell"><span class="audit-action-badge">${item.action}</span></td>
-        <td class="audit-cell audit-cell-dlp">${item.dlp}</td>
-        <td class="audit-cell audit-cell-dim">${item.latency}</td>
-        <td class="audit-cell audit-cell-dim">${item.timestamp}</td>
+        <td class="audit-cell audit-cell-id">${esc(item.runId)}</td>
+        <td class="audit-cell audit-cell-threat">${esc(item.threat)}</td>
+        <td class="audit-cell"><span class="audit-action-badge">${esc(item.action)}</span></td>
+        <td class="audit-cell audit-cell-dlp">${esc(item.dlp)}</td>
+        <td class="audit-cell audit-cell-dim">${esc(item.latency)}</td>
+        <td class="audit-cell audit-cell-dim">${esc(item.timestamp)}</td>
       </tr>
     `).join("");
   }

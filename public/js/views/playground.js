@@ -62,5 +62,26 @@ export function initPlayground(auditFeed) {
         timestamp: 'Just now'
       });
     }
+
+    // Also trigger real execution engine in background to record telemetry and audit trail
+    try {
+      const execRes = await fetch('/api/v1/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          policy: {
+            name: activePresetKey,
+            timeoutMs: 5000,
+            writablePaths: ['/tmp'],
+            egressAllowlist: code.includes('pypi.org') ? ['pypi.org'] : []
+          }
+        })
+      });
+      if (execRes.ok) {
+        const execData = await execRes.json();
+        window.dispatchEvent(new CustomEvent('warden:execution', { detail: execData }));
+      }
+    } catch (_) {}
   });
 }

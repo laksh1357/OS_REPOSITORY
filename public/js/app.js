@@ -5,6 +5,7 @@ import { initPlayground } from './views/playground.js';
 import { initArchitecture } from './views/architecture.js';
 import { initPolicy } from './views/policy.js';
 import { initClipboard } from './views/clipboard.js';
+import { initDashboard } from './views/dashboard.js';
 import { renderAttackMatrix } from './attack-matrix.js';
 import { AuditFeed } from './audit-feed.js';
 
@@ -46,6 +47,9 @@ document.addEventListener("DOMContentLoaded", () => {
     renderAttackMatrix(attackMatrixEl);
   }
 
-  // 8. Clipboard Copy Actions
+  // 8. Initialize Real Execution Telemetry Dashboard
+  initDashboard();
+
+  // 9. Clipboard Copy Actions
   initClipboard();
 });

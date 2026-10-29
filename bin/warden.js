@@ -14,20 +14,140 @@ console.log('\x1b[36m%s\x1b[0m', `🛡️ Warden OS-Level Sandbox Engine v${vers
 if (command === 'help' || command === '--help' || command === '-h') {
   console.log(`
 Usage:
-  warden run <file.py> [--policy <policy.yaml>]   Execute snippet inside Warden sandbox
-  warden policy init                               Generate default warden.yaml
-  warden version                                   Print CLI version info
+  warden run <file.py>             Simulate snippet execution against 5-layer sandbox
+  warden exec <file.py>            Execute snippet in real isolated worker process
+  warden benchmark                 Run full security benchmark suite (BM-01 to BM-08)
+  warden capabilities              Inspect host OS isolation capabilities
+  warden audit                     View recent audit chain entries
+  warden verify                    Verify tamper-evident SHA-256 audit chain
+  warden policy init               Generate default warden.yaml
+  warden version                   Print CLI version info
 
 Examples:
+  node bin/warden.js exec snippet.py
+  node bin/warden.js benchmark
+  node bin/warden.js capabilities
+  node bin/warden.js audit
+  node bin/warden.js verify
   node bin/warden.js run snippet.py
-  node bin/warden.js policy init
 `);
   process.exit(0);
 }
 
 if (command === 'version' || command === '-v' || command === '--version') {
-  console.log(`Warden Core CLI v${version || '1.0.0'} (Seccomp-BPF / Cgroups v2 / PostgreSQL)`);
+  console.log(`Warden Core CLI v${version || '1.0.0'} (Subprocess Isolation / RLIMIT / DLP / SHA-256 Chain)`);
   process.exit(0);
+}
+
+if (command === 'capabilities') {
+  const { HOST_CAPABILITIES } = require('../engine/executor');
+  console.log('\nHost Isolation Capabilities:');
+  console.log(`  Platform:       ${HOST_CAPABILITIES.platform}`);
+  console.log(`  Timeout Kill:   ${HOST_CAPABILITIES.timeout ? '✓ ENFORCED (SIGKILL)' : '✗'}`);
+  console.log(`  Output Limit:   ${HOST_CAPABILITIES.outputLimit ? '✓ ENFORCED (64KB cap)' : '✗'}`);
+  console.log(`  DLP Redaction:  ${HOST_CAPABILITIES.dlpRedaction ? '✓ ENFORCED (7 patterns)' : '✗'}`);
+  console.log(`  Non-Root Exec:  ${HOST_CAPABILITIES.nonRootExec ? '✓ ENFORCED' : '✗'}`);
+  console.log(`  Seccomp-BPF:    ${HOST_CAPABILITIES.seccomp ? '✓ AVAILABLE' : '✗ UNSUPPORTED on ' + HOST_CAPABILITIES.platform}`);
+  console.log(`  cgroups v2:     ${HOST_CAPABILITIES.cgroups ? '✓ AVAILABLE' : '✗ UNSUPPORTED on ' + HOST_CAPABILITIES.platform}`);
+  console.log(`  Namespaces:     ${HOST_CAPABILITIES.namespaces ? '✓ AVAILABLE' : '✗ UNSUPPORTED on ' + HOST_CAPABILITIES.platform}`);
+  console.log(`  OverlayFS:      ${HOST_CAPABILITIES.overlayfs ? '✓ AVAILABLE' : '✗ UNSUPPORTED on ' + HOST_CAPABILITIES.platform}`);
+  console.log(`  eBPF Egress:    ${HOST_CAPABILITIES.ebpfEgress ? '✓ AVAILABLE' : '✗ UNSUPPORTED on ' + HOST_CAPABILITIES.platform}`);
+  process.exit(0);
+}
+
+if (command === 'benchmark') {
+  const { runAll } = require('../engine/benchmark');
+  console.log('\nRunning Warden Security Benchmark Suite...');
+  runAll().then(report => {
+    console.log(`\nPlatform: ${report.platform} | Total Time: ${report.totalMs}ms`);
+    console.log('Results:');
+    report.results.forEach(r => {
+      const tag = r.status === 'PASS' ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
+      console.log(`  [${tag}] ${r.id} ${r.name} (${r.executionMs}ms)`);
+      console.log(`         ${r.evidence}`);
+      if (r.platformNote) console.log(`         \x1b[33mNote: ${r.platformNote}\x1b[0m`);
+    });
+    console.log(`\nSummary: ${report.summary.pass}/${report.summary.total} Passed, ${report.summary.fail} Failed`);
+    process.exit(report.summary.fail > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error('Benchmark failed:', err);
+    process.exit(1);
+  });
+  return;
+}
+
+if (command === 'audit') {
+  const { getRecentEntries } = require('../engine/audit-chain');
+  const entries = getRecentEntries(10);
+  console.log('\nRecent Tamper-Evident Audit Chain Entries:');
+  if (entries.length === 0) {
+    console.log('  (No entries recorded in current session)');
+  } else {
+    entries.forEach(e => {
+      console.log(`  #${e.seq} [${e.status}] Run: ${e.runId} | Exit: ${e.exitCode} | Time: ${e.executionMs}ms | ChainHash: ${e.chainHash}`);
+    });
+  }
+  process.exit(0);
+}
+
+if (command === 'verify') {
+  const { verifyChain, getChainStatus } = require('../engine/audit-chain');
+  const status = getChainStatus();
+  console.log('\nAudit Chain Verification:');
+  console.log(`  Chain Length:     ${status.length}`);
+  console.log(`  Latest Hash:      ${status.lastHash}`);
+  console.log(`  Integrity Status: ${status.valid ? '\x1b[32mVERIFIED (No Tampering)\x1b[0m' : '\x1b[31mCORRUPTED\x1b[0m'}`);
+  process.exit(status.valid ? 0 : 1);
+}
+
+if (command === 'exec') {
+  const target = args[1];
+  if (!target) {
+    console.error('\x1b[31m%s\x1b[0m', 'Error: Please specify a python script file or snippet to execute.');
+    console.log('Example: node bin/warden.js exec snippet.py');
+    process.exit(1);
+  }
+
+  let code = '';
+  if (fs.existsSync(target)) {
+    code = fs.readFileSync(target, 'utf8');
+  } else if (target.endsWith('.py') || target.endsWith('.sh')) {
+    console.error('\x1b[31m%s\x1b[0m', `Error: File not found: ${target}`);
+    process.exit(1);
+  } else {
+    code = target;
+  }
+
+  const { executeCode } = require('../engine/executor');
+  const { appendEvent, buildExecutionEvent } = require('../engine/audit-chain');
+
+  console.log('\x1b[34m%s\x1b[0m', '[WARDEN-EXEC] Spawning isolated Python worker process with timeout & RLIMIT...');
+  executeCode(code, { timeoutMs: 5000 }).then(result => {
+    appendEvent(buildExecutionEvent(result, 'cli-exec'));
+    console.log(`[WARDEN-EXEC] Run ID: ${result.runId} | Execution Time: ${result.executionMs}ms | Exit Code: ${result.exitCode}`);
+    if (result.stdout) {
+      console.log('\n--- STDOUT ---');
+      console.log(result.stdout.trim());
+    }
+    if (result.stderr) {
+      console.log('\n--- STDERR ---');
+      console.log(result.stderr.trim());
+    }
+    if (result.violations.length > 0) {
+      console.log('\n\x1b[31m[VIOLATIONS CONTAINED]\x1b[0m');
+      result.violations.forEach(v => {
+        console.log(`  - ${v.type}: ${v.evidence}`);
+      });
+    }
+    if (result.dlpRedacted) {
+      console.log('\x1b[32m[DLP] Output sanitized: secrets redacted.\x1b[0m');
+    }
+    process.exit(result.exitCode === 0 ? 0 : 1);
+  }).catch(err => {
+    console.error('Execution failed:', err.message);
+    process.exit(1);
+  });
+  return;
 }
 
 if (command === 'policy' && args[1] === 'init') {

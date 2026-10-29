@@ -3,7 +3,7 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://warden:warden_secret_pass@localhost:5432/warden_db',
+  connectionString: process.env.DATABASE_URL || null,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
