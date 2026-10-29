@@ -11,6 +11,11 @@ export function initDashboard() {
   const liveAuditBody = document.getElementById('live-audit-body');
   const chainBadge = document.getElementById('chain-integrity-badge');
 
+  // Red Team elements
+  const redteamBtn = document.getElementById('redteam-run-btn');
+  const redteamBadge = document.getElementById('redteam-status-badge');
+  const redteamContainer = document.getElementById('redteam-results-container');
+
   // Metric elements
   const elTotalRuns = document.getElementById('dash-total-runs');
   const elContained = document.getElementById('dash-contained');
@@ -200,6 +205,142 @@ export function initDashboard() {
             </div>
           </div>
         `).join('')}
+      </div>
+    `;
+  }
+
+  // 3b. Red Team Attack Suite Runner
+  if (redteamBtn) {
+    redteamBtn.addEventListener('click', async () => {
+      redteamBtn.disabled = true;
+      if (redteamBadge) redteamBadge.innerHTML = `<span class="pulse-dot"></span> SIMULATING ATTACKS...`;
+      if (redteamContainer) {
+        redteamContainer.innerHTML = `<div class="bench-running"><span class="spinner"></span> Simulating 10 safe, controlled attacks (path traversal, fs writes, C2 egress, privilege escalation, fork ceiling, DLP)...</div>`;
+      }
+
+      try {
+        const res = await fetch('/api/v1/redteam');
+        if (!res.ok) throw new Error(`Red Team runner returned HTTP ${res.status}`);
+        const data = await res.json();
+        renderRedTeamResults(data);
+        if (redteamBadge) {
+          const pass = data.summary?.passed ?? 0;
+          const total = data.summary?.total ?? 0;
+          const score = data.summary?.defenseScore ?? 0;
+          redteamBadge.innerHTML = `<span class="pulse-dot"></span> SCORE ${score}% (${pass}/${total} DEFENDED)`;
+        }
+        refreshTelemetry();
+      } catch (err) {
+        if (redteamContainer) {
+          redteamContainer.innerHTML = `<div class="bench-error">Red Team attack simulation error: ${esc(err.message)}</div>`;
+        }
+        if (redteamBadge) redteamBadge.innerHTML = `<span class="pulse-dot red"></span> ERROR`;
+      } finally {
+        redteamBtn.disabled = false;
+      }
+    });
+  }
+
+  function renderRedTeamResults(data) {
+    if (!redteamContainer) return;
+    const scenarios = data.scenarios || [];
+    const summary = data.summary || {};
+    const vulns = data.vulnerabilities || [];
+
+    redteamContainer.innerHTML = `
+      <div class="redteam-summary-bar">
+        <div class="rt-stat-card defense-score">
+          <label>Defense Score</label>
+          <div class="rt-score-num ${summary.defenseScore === 100 ? 'text-green' : (summary.defenseScore >= 80 ? 'text-amber' : 'text-red')}">${summary.defenseScore ?? 0}%</div>
+        </div>
+        <div class="rt-stat-card">
+          <label>Vectors Tested</label>
+          <div class="rt-stat-val">${summary.total || 0}</div>
+        </div>
+        <div class="rt-stat-card">
+          <label>Attacks Defended</label>
+          <div class="rt-stat-val text-green">${summary.passed || 0}</div>
+        </div>
+        <div class="rt-stat-card">
+          <label>Uncontained Breaches</label>
+          <div class="rt-stat-val ${summary.failed > 0 ? 'text-red' : 'text-dim'}">${summary.failed || 0}</div>
+        </div>
+        <div class="rt-stat-card">
+          <label>Execution Time</label>
+          <div class="rt-stat-val">${data.totalDurationMs || 0}ms</div>
+        </div>
+      </div>
+
+      ${vulns.length > 0 ? `
+        <div class="rt-vuln-alert">
+          <div class="rt-vuln-alert-head">
+            <span class="pulse-dot red"></span>
+            <strong>Active Vulnerabilities Identified (${vulns.length})</strong>
+          </div>
+          <div class="rt-vuln-list">
+            ${vulns.map(v => `
+              <div class="rt-vuln-item">
+                <span class="sev-tag sev-${v.severity.toLowerCase()}">${esc(v.severity)}</span>
+                <div>
+                  <strong>${esc(v.title)} (${esc(v.id)})</strong>
+                  <p class="rt-vuln-desc">${esc(v.evidence)}</p>
+                  <p class="rt-vuln-remed"><strong>Remediation:</strong> ${esc(v.remediation)}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : `
+        <div class="rt-secure-banner">
+          <span>🛡️</span> All 10 safe test attack vectors contained cleanly. Zero uncontained vulnerabilities detected.
+        </div>
+      `}
+
+      <div class="rt-cards-grid">
+        ${scenarios.map(s => {
+          const statusClass = s.status === 'PASS' ? 'pass' : (s.status === 'FAIL' ? 'fail' : 'unverified');
+          const sevClass = `sev-${s.severity.toLowerCase()}`;
+          return `
+            <div class="rt-scenario-card ${statusClass}">
+              <div class="rt-card-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="rt-id">${esc(s.id)}</span>
+                  <span class="sev-tag ${sevClass}">${esc(s.severity)}</span>
+                </div>
+                <span class="bench-status-tag ${statusClass}">${esc(s.status)}</span>
+              </div>
+              <h4 class="rt-title">${esc(s.name)}</h4>
+              <p class="rt-vector"><strong>Vector:</strong> ${esc(s.vector)}</p>
+              
+              <div class="rt-comparison-box">
+                <div class="rt-cmp-line">
+                  <span class="rt-cmp-lbl">Expected:</span>
+                  <span class="rt-cmp-val">${esc(s.expected)}</span>
+                </div>
+                <div class="rt-cmp-line">
+                  <span class="rt-cmp-lbl">Actual:</span>
+                  <span class="rt-cmp-val ${statusClass === 'pass' ? 'text-green' : 'text-red'}">${esc(s.actual)}</span>
+                </div>
+              </div>
+
+              <div class="bench-evidence" style="margin-top:6px;">
+                <strong>Evidence:</strong> ${esc(s.evidence)}
+              </div>
+
+              <details class="rt-remediation-details">
+                <summary>Remediation Guidance</summary>
+                <div class="rt-remediation-body">
+                  ${esc(s.remediation)}
+                </div>
+              </details>
+
+              <div class="bench-meta" style="margin-top:8px;">
+                <span>Category: <em>${esc(s.category)}</em></span>
+                <span>${esc(s.executionMs)}ms</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   }

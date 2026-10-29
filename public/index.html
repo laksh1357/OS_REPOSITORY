@@ -424,6 +424,31 @@
           </div>
         </div>
 
+        <!-- Red Team Testing Module Panel -->
+        <div class="dash-panel redteam-panel" style="margin-top: 24px;">
+          <div class="dash-panel-header">
+            <div>
+              <h3 style="display:flex; align-items:center; gap:8px;">
+                <span>🎯</span> Red Team Security Testing Suite
+              </h3>
+              <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                Simulate safe, non-destructive attack vectors against filesystem, network, privileges, resource ceilings, and DLP filters.
+              </p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="badge" id="redteam-status-badge"><span class="pulse-dot"></span> IDLE</span>
+              <button class="btn-primary btn-sm" id="redteam-run-btn" style="background:#e04646; border-color:#ff5c5c; color:#fff;">
+                ⚡ Launch Red Team Attack Suite
+              </button>
+            </div>
+          </div>
+          <div id="redteam-results-container">
+            <div class="bench-placeholder">
+              Click "Launch Red Team Attack Suite" to test sandbox resistance across path traversal, unauthorized writes, C2 egress, fork bombs, and secret exfiltration.
+            </div>
+          </div>
+        </div>
+
         <!-- Enforcement Manifest Panel -->
         <div class="dash-panel" style="margin-top: 24px;">
           <div class="dash-panel-header">

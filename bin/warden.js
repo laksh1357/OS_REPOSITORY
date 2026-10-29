@@ -17,6 +17,7 @@ Usage:
   warden run <file.py>             Simulate snippet execution against 5-layer sandbox
   warden exec <file.py>            Execute snippet in real isolated worker process
   warden benchmark                 Run full security benchmark suite (BM-01 to BM-08)
+  warden redteam                   Run Red Team attack simulation suite (RT-FS-01 to RT-SEC-01)
   warden capabilities              Inspect host OS isolation capabilities
   warden audit                     View recent audit chain entries
   warden verify                    Verify tamper-evident SHA-256 audit chain
@@ -26,6 +27,7 @@ Usage:
 Examples:
   node bin/warden.js exec snippet.py
   node bin/warden.js benchmark
+  node bin/warden.js redteam
   node bin/warden.js capabilities
   node bin/warden.js audit
   node bin/warden.js verify
@@ -71,6 +73,37 @@ if (command === 'benchmark') {
     process.exit(report.summary.fail > 0 ? 1 : 0);
   }).catch(err => {
     console.error('Benchmark failed:', err);
+    process.exit(1);
+  });
+  return;
+}
+
+if (command === 'redteam') {
+  const { runRedTeamSuite } = require('../engine/redteam');
+  console.log('\nRunning Warden Red Team Security Testing Suite...');
+  runRedTeamSuite().then(report => {
+    console.log(`\nPlatform: ${report.platform} | Total Duration: ${report.totalDurationMs}ms | Defense Score: ${report.summary.defenseScore}%`);
+    console.log('Attack Scenarios:');
+    report.scenarios.forEach(s => {
+      const tag = s.status === 'PASS' ? '\x1b[32m[PASS]\x1b[0m' : (s.status === 'FAIL' ? '\x1b[31m[FAIL]\x1b[0m' : '\x1b[33m[UNVERIFIED]\x1b[0m');
+      const sevColor = s.severity === 'CRITICAL' ? '\x1b[35m' : (s.severity === 'HIGH' ? '\x1b[31m' : '\x1b[33m');
+      console.log(`  ${tag} ${s.id} ${sevColor}[${s.severity}]\x1b[0m ${s.name} (${s.executionMs}ms)`);
+      console.log(`         Expected:    ${s.expected}`);
+      console.log(`         Actual:      ${s.actual}`);
+      console.log(`         Evidence:    ${s.evidence}`);
+      if (s.status === 'FAIL') {
+        console.log(`         \x1b[31mRemediation: ${s.remediation}\x1b[0m`);
+      }
+    });
+    console.log(`\nSummary: ${report.summary.passed}/${report.summary.total} Passed, ${report.summary.failed} Failed, ${report.summary.unverified} Unverified`);
+    if (report.vulnerabilities.length > 0) {
+      console.log(`\x1b[31mVulnerabilities Identified: ${report.vulnerabilities.length}\x1b[0m`);
+    } else {
+      console.log('\x1b[32mZero uncontained vulnerabilities identified across tested attack vectors.\x1b[0m');
+    }
+    process.exit(report.summary.failed > 0 ? 1 : 0);
+  }).catch(err => {
+    console.error('Red Team Suite execution error:', err);
     process.exit(1);
   });
   return;

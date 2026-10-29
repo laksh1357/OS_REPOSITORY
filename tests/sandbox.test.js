@@ -7,6 +7,7 @@ const { SECRET_PATTERNS } = require('../shared/dlp-patterns.js');
 const { errorHandler, requestSanitizer } = require('../middleware/errorHandler.js');
 const { evaluatePolicy } = require('../engine/policy-enforcer.js');
 const { appendEvent, verifyChain, buildExecutionEvent, getChainStatus } = require('../engine/audit-chain.js');
+const { REDTEAM_SCENARIOS } = require('../engine/redteam.js');
 
 console.log('\x1b[36m%s\x1b[0m', '🧪 Running Warden Platform Automated Test Suite v2...');
 
@@ -197,6 +198,61 @@ test('AuditChain getChainStatus returns updated length after appends', () => {
   appendEvent({ eventType: 'STATUS_TEST', runId: 'status_check', status: 'CLEAN', exitCode: 0, executionMs: 1 });
   const after = getChainStatus();
   assert.ok(after.length >= before.length, 'Chain length must not decrease');
+});
+
+// ── PART 3: Red Team Testing Module Tests ────────────────────────────────────
+console.log('\n\x1b[36m%s\x1b[0m', '🎯 Red Team Testing Module Tests...');
+
+// 15. Verify scenario count and coverage of attack categories
+test('RedTeam defines required 10 attack vectors across all security categories', () => {
+  assert.strictEqual(REDTEAM_SCENARIOS.length, 10, 'Must have 10 scenario definitions');
+  const categories = new Set(REDTEAM_SCENARIOS.map(s => s.category));
+  assert.ok(categories.has('FILESYSTEM'), 'Must cover FILESYSTEM category');
+  assert.ok(categories.has('NETWORK'), 'Must cover NETWORK category');
+  assert.ok(categories.has('PRIVILEGE'), 'Must cover PRIVILEGE category');
+  assert.ok(categories.has('RESOURCE'), 'Must cover RESOURCE category');
+  assert.ok(categories.has('DLP'), 'Must cover DLP category');
+});
+
+// 16. Verify required properties on each scenario
+test('RedTeam scenarios contain all required schema fields and safe test payloads', () => {
+  const requiredFields = ['id', 'name', 'category', 'severity', 'vector', 'expected', 'remediation', 'code', 'evaluate'];
+  REDTEAM_SCENARIOS.forEach(sc => {
+    requiredFields.forEach(f => {
+      assert.ok(sc[f], `Scenario ${sc.id} missing required field: ${f}`);
+    });
+    assert.ok(typeof sc.evaluate === 'function', `Scenario ${sc.id} evaluate must be a function`);
+    assert.ok(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(sc.severity), `Invalid severity in ${sc.id}: ${sc.severity}`);
+  });
+});
+
+// 17. Verify evaluation logic catches path traversal breaches
+test('RedTeam RT-FS-01 evaluate flags breach when file is read', async () => {
+  const sc = REDTEAM_SCENARIOS.find(s => s.id === 'RT-FS-01');
+  const breachResult = {
+    stdout: 'BREACH: Read 64 bytes via traversal: root:x:0:0:root',
+    stderr: '',
+    exitCode: 0,
+    violations: [],
+  };
+  const evalBreach = await sc.evaluate(breachResult);
+  assert.strictEqual(evalBreach.status, 'FAIL', 'Must fail when file content is read');
+
+  const blockedResult = {
+    stdout: 'BLOCKED: PermissionError - Sensitive file read denied',
+    stderr: '',
+    exitCode: 1,
+    violations: [{ type: 'FS_READ_BLOCKED' }],
+  };
+  const evalBlocked = await sc.evaluate(blockedResult);
+  assert.strictEqual(evalBlocked.status, 'PASS', 'Must pass when access is blocked');
+});
+
+// 18. Verify remediation guidance completeness
+test('RedTeam scenarios provide actionable remediation guidance', () => {
+  REDTEAM_SCENARIOS.forEach(sc => {
+    assert.ok(typeof sc.remediation === 'string' && sc.remediation.length > 20, `Scenario ${sc.id} must have detailed remediation`);
+  });
 });
 
 console.log('\n----------------------------------------');

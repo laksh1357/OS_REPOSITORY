@@ -26,6 +26,7 @@ const policyRoutes = require('./routes/policies');
 const executeRoutes = require('./routes/execute');
 const benchmarkRoutes = require('./routes/benchmark');
 const auditRoutes = require('./routes/audit');
+const redteamRoutes = require('./routes/redteam');
 const { errorHandler, requestSanitizer } = require('./middleware/errorHandler');
 const db = require('./db');
 
@@ -61,6 +62,7 @@ app.use('/api/v1/policies', policyRoutes);
 app.use('/api/v1/execute', executeRoutes);      // Real Python execution engine
 app.use('/api/v1/benchmark', benchmarkRoutes);  // Security benchmark suite
 app.use('/api/v1/audit', auditRoutes);          // Tamper-evident audit log
+app.use('/api/v1/redteam', redteamRoutes);      // Red team testing module
 
 // Fallback SPA Route for client-side navigation (excludes API routes)
 app.get('*', (req, res, next) => {

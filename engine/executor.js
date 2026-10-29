@@ -330,6 +330,7 @@ async function executeCode(code, policy = {}) {
     proc.on('close', (exitCode, signal) => {
       clearTimeout(killTimer);
       const executionMs = Date.now() - startTime;
+      const isTimeout = timedOut || signal === 'SIGTERM' || signal === 'SIGXCPU' || (signal === 'SIGKILL' && !outputLimitHit);
 
       // Clean up temp file
       try { fs.unlinkSync(tmpFile); } catch (_) {}
@@ -343,7 +344,7 @@ async function executeCode(code, policy = {}) {
       const safeStderr = dlp.sanitizeCode(rawStderr);
 
       // Detect policy violations from actual execution
-      const violations = detectViolations(code, rawStderr, timedOut, outputLimitHit);
+      const violations = detectViolations(code, rawStderr, isTimeout, outputLimitHit);
 
       const result = {
         runId,
@@ -351,7 +352,7 @@ async function executeCode(code, policy = {}) {
         executionMs,
         exitCode: exitCode !== null ? exitCode : -1,
         signal: signal || null,
-        timedOut,
+        timedOut: isTimeout,
         outputLimitHit,
         stdout: safeStdout,
         stderr: safeStderr,

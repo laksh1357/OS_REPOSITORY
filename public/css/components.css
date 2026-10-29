@@ -1118,3 +1118,239 @@ input:checked + .toggle-slider:before {
   color: var(--text-dim);
 }
 
+/* ── RED TEAM TESTING MODULE ── */
+.redteam-panel {
+  border-color: rgba(224, 70, 70, 0.3);
+}
+
+.redteam-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rt-stat-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-s);
+  padding: 12px 14px;
+}
+
+.rt-stat-card label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.rt-stat-val {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rt-score-num {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.rt-vuln-alert {
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.35);
+  border-radius: var(--radius-s);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.rt-vuln-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--red);
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+}
+
+.rt-vuln-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rt-vuln-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px;
+  background: var(--panel);
+  border-radius: var(--radius-s);
+  font-size: 0.8rem;
+}
+
+.rt-vuln-desc {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.rt-vuln-remed {
+  font-size: 0.75rem;
+  color: var(--amber);
+  margin-top: 4px;
+}
+
+.rt-secure-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(70, 227, 135, 0.06);
+  border: 1px solid rgba(70, 227, 135, 0.25);
+  border-radius: var(--radius-s);
+  color: var(--green);
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+}
+
+.rt-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.rt-scenario-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-s);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rt-scenario-card.pass {
+  border-left: 3px solid var(--green);
+}
+
+.rt-scenario-card.fail {
+  border-left: 3px solid var(--red);
+}
+
+.rt-scenario-card.unverified {
+  border-left: 3px solid var(--amber);
+}
+
+.rt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rt-id {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.sev-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sev-critical {
+  background: rgba(235, 60, 60, 0.2);
+  color: #ff5c5c;
+  border: 1px solid rgba(255, 92, 92, 0.35);
+}
+
+.sev-high {
+  background: rgba(240, 140, 40, 0.2);
+  color: #fca130;
+  border: 1px solid rgba(252, 161, 48, 0.35);
+}
+
+.sev-medium {
+  background: rgba(240, 200, 40, 0.15);
+  color: #f5d13b;
+  border: 1px solid rgba(245, 209, 59, 0.3);
+}
+
+.sev-low {
+  background: rgba(100, 160, 240, 0.15);
+  color: #64a0f0;
+  border: 1px solid rgba(100, 160, 240, 0.3);
+}
+
+.rt-title {
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.rt-vector {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.rt-comparison-box {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+}
+
+.rt-cmp-line {
+  display: flex;
+  gap: 6px;
+}
+
+.rt-cmp-lbl {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  min-width: 55px;
+}
+
+.rt-cmp-val {
+  color: var(--text);
+}
+
+.rt-remediation-details {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+}
+
+.rt-remediation-details summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.rt-remediation-details summary:hover {
+  color: var(--text);
+}
+
+.rt-remediation-body {
+  margin-top: 6px;
+  color: var(--amber);
+  line-height: 1.4;
+}
+
+
