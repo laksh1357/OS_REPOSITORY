@@ -209,7 +209,40 @@ function getMechanismStatus(mechanism) {
   return entry ? entry.status : 'UNKNOWN';
 }
 
+// In-memory active policy (with secure defaults)
+let _activePolicy = {
+  name: 'default-python-sandbox',
+  runtime: 'process',
+  cpu_limit: 0.5,
+  memory_limit_mb: 256,
+  max_processes: 8,
+  timeoutMs: 10000,
+  root_readonly: true,
+  writable_paths: ['/tmp'],
+  egress_allowlist: ['pypi.org', 'files.pythonhosted.org', 'api.openai.com'],
+  syscall_profile: 'python-minimal',
+  failClosed: false,
+};
+
+function getActivePolicy() {
+  return { ..._activePolicy };
+}
+
+function setActivePolicy(newPolicy) {
+  if (!newPolicy || typeof newPolicy !== 'object') {
+    throw new Error('Policy must be an object');
+  }
+  _activePolicy = {
+    ..._activePolicy,
+    ...newPolicy,
+    updatedAt: new Date().toISOString(),
+  };
+  return { ..._activePolicy };
+}
+
 module.exports = {
   evaluatePolicy,
   getMechanismStatus,
+  getActivePolicy,
+  setActivePolicy,
 };

@@ -350,6 +350,15 @@
                 <!-- Chips rendered via JS -->
               </div>
             </div>
+
+            <div class="form-group" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border);">
+              <label>Policy Pipeline Actions:</label>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                <button class="btn-primary btn-sm" id="btn-validate-policy" style="background:var(--accent);">🛡️ Validate Policy</button>
+                <button class="btn-secondary btn-sm" id="btn-activate-policy">⚡ Activate Policy</button>
+                <button class="btn-secondary btn-sm" id="btn-compare-policy">🔍 Compare vs Runtime</button>
+              </div>
+            </div>
           </div>
 
           <div class="code-export-card">
@@ -366,6 +375,11 @@
 <!-- Dynamic policy code generated via JS -->
             </pre>
           </div>
+        </div>
+
+        <!-- Policy Validation & Runtime Comparison Feedback Container -->
+        <div id="policy-feedback-container" style="display:none; margin-top:20px;">
+          <!-- Dynamically populated via JS -->
         </div>
       </div>
     </section>
@@ -462,9 +476,31 @@
 
         <!-- Live Audit Chain Panel -->
         <div class="dash-panel" style="margin-top: 24px;">
-          <div class="dash-panel-header">
-            <h3>Live Audit Chain</h3>
-            <div style="display:flex; gap:8px; align-items:center;">
+          <div class="dash-panel-header" style="flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3>Live Audit Chain</h3>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                SHA-256 tamper-evident hash chained security events with DLP secret masking.
+              </p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-left:auto; flex-wrap:wrap;">
+              <select id="audit-filter-type" class="input-text" style="padding:4px 8px; font-size:0.75rem; width:auto;">
+                <option value="">All Event Types</option>
+                <option value="EXECUTION">EXECUTION</option>
+                <option value="SANDBOX_EXECUTION_REQUEST">EXECUTION_REQUEST</option>
+                <option value="POLICY_VALIDATED">POLICY_VALIDATED</option>
+                <option value="POLICY_ACTIVATED">POLICY_ACTIVATED</option>
+                <option value="SECURITY_ACTION_DENIED">ACTION_DENIED</option>
+                <option value="REDTEAM_TEST_COMPLETED">REDTEAM_TEST</option>
+              </select>
+              <select id="audit-filter-severity" class="input-text" style="padding:4px 8px; font-size:0.75rem; width:auto;">
+                <option value="">All Severities</option>
+                <option value="CRITICAL">CRITICAL</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+                <option value="INFO">INFO</option>
+              </select>
               <span class="badge" id="chain-integrity-badge"><span class="pulse-dot"></span> UNVERIFIED</span>
               <button class="btn-secondary btn-sm" id="audit-refresh-btn">↻ Refresh</button>
             </div>
@@ -474,18 +510,19 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Run ID</th>
+                  <th>Type</th>
+                  <th>Run / Target</th>
                   <th>Status</th>
                   <th>Exit</th>
                   <th>Time</th>
                   <th>DLP</th>
-                  <th>Violations</th>
+                  <th>Decision / Evidence</th>
                   <th>Chain Hash</th>
                   <th>Timestamp</th>
                 </tr>
               </thead>
               <tbody id="live-audit-body">
-                <tr><td colspan="9" style="text-align:center; color:var(--text-dim); padding:20px;">No executions yet — run a code snippet in the Playground above</td></tr>
+                <tr><td colspan="10" style="text-align:center; color:var(--text-dim); padding:20px;">No executions yet — run a code snippet in the Playground above</td></tr>
               </tbody>
             </table>
           </div>

@@ -140,31 +140,77 @@ except Exception as _e:
 _WRITABLE = [${writablePaths}]
 _SENSITIVE_READ_BLOCK = ['/etc/passwd', '/etc/shadow', '/etc/master.passwd', '.aws/', '.ssh/', '/proc/self/environ']
 
+_WRITABLE_CANON = []
+for _p in _WRITABLE:
+    try:
+        _WRITABLE_CANON.append(os.path.realpath(os.path.abspath(_p)))
+    except Exception:
+        _WRITABLE_CANON.append(_p)
+
 _real_open = open
 def _guarded_open(file, mode='r', *args, **kwargs):
     file_str = str(file)
+    try:
+        canon_path = os.path.realpath(os.path.abspath(file_str))
+    except Exception:
+        canon_path = file_str
+
     if any(c in mode for c in ('w', 'a', 'x', '+')):
-        allowed = any(file_str.startswith(p) for p in _WRITABLE)
-        if not allowed and not file_str.startswith('/dev/'):
-            raise PermissionError(f"[WARDEN] Write outside writable paths denied: {file_str}")
-    if any(s in file_str for s in _SENSITIVE_READ_BLOCK):
-        raise PermissionError(f"[WARDEN] Sensitive file read denied: {file_str}")
+        allowed = any(canon_path == p or canon_path.startswith(p if p.endswith(os.sep) else p + os.sep) for p in _WRITABLE_CANON)
+        if not allowed and not canon_path.startswith('/dev/'):
+            raise PermissionError(f"[WARDEN] Write outside writable paths denied: {file_str} (canonical: {canon_path})")
+
+    for s in _SENSITIVE_READ_BLOCK:
+        if s in file_str or s in canon_path:
+            raise PermissionError(f"[WARDEN] Sensitive file read denied: {file_str}")
+
     return _real_open(file, mode, *args, **kwargs)
+
+# Guard symlink and hardlink creation to block symlink traversal write exploits
+_real_symlink = getattr(os, 'symlink', None)
+def _guarded_symlink(src, dst, *args, **kwargs):
+    raise PermissionError("[WARDEN] Symlink creation is forbidden by sandbox policy")
+if _real_symlink:
+    os.symlink = _guarded_symlink
+
+_real_link = getattr(os, 'link', None)
+def _guarded_link(src, dst, *args, **kwargs):
+    raise PermissionError("[WARDEN] Hardlink creation is forbidden by sandbox policy")
+if _real_link:
+    os.link = _guarded_link
+
 builtins_mod = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__) if __builtins__ else {}
 try:
     import builtins
     builtins.open = _guarded_open
+    builtins.__dict__['open'] = _guarded_open
 except Exception:
     pass
 
 # ── Network egress guard ──────────────────────────────────────────────────────
 _EGRESS_ALLOW = [${egressAllowlist}]
 _real_getaddrinfo = socket.getaddrinfo
+_real_socket_connect = socket.socket.connect
+
 def _guarded_getaddrinfo(host, *args, **kwargs):
-    if _EGRESS_ALLOW and host not in _EGRESS_ALLOW:
-        raise ConnectionRefusedError(f"[WARDEN] Network egress denied: {host} not in allowlist")
+    host_str = str(host).lower()
+    if not _EGRESS_ALLOW:
+        raise ConnectionRefusedError(f"[WARDEN] Network egress denied: empty allowlist blocks all outbound traffic ({host_str})")
+    if host_str not in _EGRESS_ALLOW:
+        raise ConnectionRefusedError(f"[WARDEN] Network egress denied: {host_str} not in allowlist")
     return _real_getaddrinfo(host, *args, **kwargs)
+
+def _guarded_connect(self, address, *args, **kwargs):
+    if isinstance(address, (tuple, list)) and len(address) >= 1:
+        host_str = str(address[0]).lower()
+        if not _EGRESS_ALLOW:
+            raise ConnectionRefusedError(f"[WARDEN] Network connection denied: empty allowlist blocks all outbound traffic ({host_str})")
+        if host_str not in _EGRESS_ALLOW:
+            raise ConnectionRefusedError(f"[WARDEN] Network connection denied: {host_str} not in allowlist")
+    return _real_socket_connect(self, address, *args, **kwargs)
+
 socket.getaddrinfo = _guarded_getaddrinfo
+socket.socket.connect = _guarded_connect
 
 # ── Execute user snippet ──────────────────────────────────────────────────────
 _code = ${JSON.stringify(code)}
@@ -191,6 +237,20 @@ async function executeCode(code, policy = {}) {
   const runId = 'run_' + crypto.randomBytes(6).toString('hex');
   const startTime = Date.now();
   const timeoutMs = Math.min(policy.timeoutMs || DEFAULT_TIMEOUT_MS, 30_000);
+
+  // Check failClosed requirement
+  if (policy.failClosed) {
+    const { validatePolicy } = require('./policy-validator');
+    const val = validatePolicy(policy);
+    const blockingUnsupported = val.unsupportedControls.filter(c => c.severity === 'HIGH');
+    if (blockingUnsupported.length > 0) {
+      const missingList = blockingUnsupported.map(c => c.mechanism).join(', ');
+      const err = new Error(`SECURITY_ENFORCEMENT_FAILED: Policy demands fail-closed execution, but required OS security controls are unsupported on ${HOST_CAPABILITIES.platform}: [${missingList}]`);
+      err.code = 'SECURITY_ENFORCEMENT_FAILED';
+      err.unsupportedControls = blockingUnsupported;
+      throw err;
+    }
+  }
 
   // Fallback to containment simulation when Python runtime is not present on host container (e.g. Node-only serverless image)
   if (!isPythonAvailable()) {
@@ -438,11 +498,21 @@ function detectViolations(code, stderr, timedOut, outputLimitHit) {
   }
 
   // Network egress violation — detected from stderr
-  if (stderr.includes('[WARDEN] Network egress denied')) {
+  if (stderr.includes('[WARDEN] Network egress denied') || stderr.includes('[WARDEN] Network connection denied')) {
     violations.push({
       type: 'EGRESS_DENIED',
       severity: 'HIGH',
       evidence: 'Outbound network connection blocked by socket guard',
+      enforced: true,
+    });
+  }
+
+  // Symlink bypass attempt — detected from stderr
+  if (stderr.includes('[WARDEN] Symlink creation is forbidden') || stderr.includes('[WARDEN] Hardlink creation is forbidden')) {
+    violations.push({
+      type: 'SYMLINK_EXPLOIT_BLOCKED',
+      severity: 'HIGH',
+      evidence: 'Symlink creation blocked by filesystem isolation guard',
       enforced: true,
     });
   }

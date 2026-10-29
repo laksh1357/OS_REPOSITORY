@@ -15,7 +15,13 @@ const db = require('../db');
 // GET /api/v1/audit
 router.get('/', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-  const memEntries = getRecentEntries(limit);
+  const filters = {
+    eventType: req.query.type || req.query.eventType,
+    severity: req.query.severity,
+    status: req.query.status,
+    runId: req.query.runId,
+  };
+  const memEntries = getRecentEntries(limit, filters);
 
   // Also try DB entries
   let dbEntries = [];

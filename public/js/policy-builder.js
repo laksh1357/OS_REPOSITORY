@@ -184,4 +184,19 @@ func main() {
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(payload, null, 2)}'`;
   }
+
+  toPolicyObject() {
+    return {
+      name: "agent-task-sandbox",
+      runtime: this.state.runtime,
+      cpu_limit: parseFloat(this.state.cpu),
+      memory_limit_mb: this.state.memory,
+      max_processes: this.state.pids,
+      timeoutMs: this.state.timeout * 1000,
+      root_readonly: this.state.rootFs === 'read-only',
+      writable_paths: this.state.writableDirs || ['/tmp'],
+      egress_allowlist: this.state.egressDomains || [],
+      syscall_profile: this.state.syscallProfile || 'python-minimal',
+    };
+  }
 }

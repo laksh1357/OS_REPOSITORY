@@ -23,6 +23,10 @@ export function initDashboard() {
   const elDlpRedactions = document.getElementById('dash-dlp-redactions');
   const elChainStatus = document.getElementById('dash-chain-status');
 
+  // Audit filter elements
+  const filterType = document.getElementById('audit-filter-type');
+  const filterSeverity = document.getElementById('audit-filter-severity');
+
   // Escape helper for safe DOM insertion
   const esc = (s) => String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -59,30 +63,46 @@ export function initDashboard() {
             <span class="pulse-dot"></span>
             <span>Host OS: <strong>${esc(platform.toUpperCase())}</strong></span>
           </div>
-          <span class="cap-legend">
-            <span class="tag-enforced">● Enforced</span>
-            <span class="tag-unsupported">○ Platform Unsupported</span>
-          </span>
+          <div class="cap-status-pill ${platform === 'linux' ? 'cap-full' : 'cap-partial'}">
+            ${platform === 'linux' ? '✓ FULL KERNEL ENFORCEMENT' : '⚠️ PROCESS RLIMIT ENFORCEMENT (Darwin)'}
+          </div>
         </div>
         <div class="cap-grid">
           ${items.map(it => `
-            <div class="cap-chip ${it.val ? 'active' : 'inactive'}">
-              <span class="cap-indicator">${it.val ? '✓' : '✗'}</span>
-              <span class="cap-name">${esc(it.label)}</span>
-              <span class="cap-scope">${esc(it.os)}</span>
+            <div class="cap-item ${it.val ? 'cap-supported' : 'cap-unsupported'}">
+              <span class="cap-icon">${it.val ? '✓' : '✗'}</span>
+              <div class="cap-info">
+                <span class="cap-name">${esc(it.label)}</span>
+                <span class="cap-tag">${esc(it.os)}</span>
+              </div>
             </div>
           `).join('')}
         </div>
+        ${platform !== 'linux' ? `
+          <div class="cap-notice">
+            <strong>Platform Limitation Notice:</strong> Running on <code>${esc(platform)}</code>.
+            cgroups v2, seccomp-bpf, OverlayFS, and network namespaces require a Linux kernel.
+            Warden enforces timeouts via <code>SIGKILL</code>, memory ceilings via <code>RLIMIT_AS</code>,
+            and filesystem/egress guards via Python userspace wrappers.
+          </div>
+        ` : ''}
       `;
     } catch (err) {
-      capBanner.innerHTML = `<div class="cap-error">Unable to query host capabilities: ${esc(err.message)}</div>`;
+      capBanner.innerHTML = `<div class="cap-error">Failed to load platform capabilities: ${esc(err.message)}</div>`;
     }
   }
 
   // 2. Fetch & render Audit / Telemetry metrics
   async function refreshTelemetry() {
     try {
-      const res = await fetch('/api/v1/audit?limit=25');
+      const typeVal = filterType ? filterType.value : '';
+      const sevVal = filterSeverity ? filterSeverity.value : '';
+
+      let url = '/api/v1/audit?limit=50';
+      if (typeVal) url += `&type=${encodeURIComponent(typeVal)}`;
+      if (sevVal) url += `&severity=${encodeURIComponent(sevVal)}`;
+
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       const entries = data.chainEntries || [];
@@ -117,24 +137,36 @@ export function initDashboard() {
           : `<span class="pulse-dot red"></span> CHAIN BROKEN AT #${chainStatus.firstBrokenAt}`;
       }
 
-      // Render table
+      // Render 10-column table
       if (liveAuditBody) {
         if (entries.length === 0) {
-          liveAuditBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-dim); padding:20px;">No executions logged yet. Execute code in the Playground or run the Benchmark Suite.</td></tr>`;
+          liveAuditBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-dim); padding:20px;">No audit events match current filters. Execute code in the Playground or run the Red Team Suite.</td></tr>`;
         } else {
           liveAuditBody.innerHTML = entries.map(it => {
-            const statusClass = it.status === 'CONTAINED' ? 'badge-danger' : it.status === 'CLEAN' ? 'badge-success' : 'badge-warning';
+            const statusClass = it.status === 'CONTAINED' || it.status === 'FAIL_CLOSED'
+              ? 'badge-danger'
+              : (it.status === 'CLEAN' || it.status === 'VALID' || it.status === 'ACTIVATED' ? 'badge-success' : 'badge-warning');
+
+            const reason = it.decisionReason || (it.violations && it.violations[0]?.evidence) || 'Normal processing';
+            const runOrTarget = it.runId || it.policyName || '—';
+            const execTime = it.executionMs !== null ? `${it.executionMs}ms` : '—';
+            const exit = it.exitCode !== null ? it.exitCode : '—';
+
             return `
               <tr class="audit-row">
                 <td class="audit-cell-dim">#${esc(it.seq)}</td>
-                <td class="audit-cell-id">${esc(it.runId)}</td>
+                <td><code style="font-size:0.7rem; color:var(--accent);">${esc(it.eventType || 'EXECUTION')}</code></td>
+                <td class="audit-cell-id" style="font-size:0.75rem;">${esc(runOrTarget)}</td>
                 <td><span class="status-pill ${statusClass}">${esc(it.status)}</span></td>
-                <td class="audit-cell-dim">${esc(it.exitCode)}</td>
-                <td class="audit-cell-dim">${esc(it.executionMs)}ms</td>
-                <td>${it.dlpRedacted ? '<span class="text-green">Redacted</span>' : '<span class="text-dim">None</span>'}</td>
-                <td><span class="violation-count">${(it.violations || []).length}</span></td>
-                <td class="audit-cell-mono">${esc(it.chainHash)}</td>
-                <td class="audit-cell-dim">${new Date(it.timestamp).toLocaleTimeString()}</td>
+                <td class="audit-cell-dim">${esc(exit)}</td>
+                <td class="audit-cell-dim">${esc(execTime)}</td>
+                <td>${it.dlpRedacted ? '<span class="text-green" style="font-size:0.72rem;">Redacted</span>' : '<span class="text-dim" style="font-size:0.72rem;">None</span>'}</td>
+                <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.72rem; color:var(--text-muted);" title="${esc(reason)}">
+                  ${it.observed ? '<span title="Direct kernel/wrapper observation" style="color:var(--accent); margin-right:4px;">👁️</span>' : '<span title="Inferred event" style="color:var(--text-dim); margin-right:4px;">◌</span>'}
+                  ${esc(reason)}
+                </td>
+                <td class="audit-cell-mono" style="font-size:0.7rem;">${esc(it.chainHash)}</td>
+                <td class="audit-cell-dim" style="font-size:0.7rem;">${new Date(it.timestamp).toLocaleTimeString()}</td>
               </tr>
             `;
           }).join('');
@@ -142,6 +174,10 @@ export function initDashboard() {
       }
     } catch (_) {}
   }
+
+  // Filter change events
+  if (filterType) filterType.addEventListener('change', () => refreshTelemetry());
+  if (filterSeverity) filterSeverity.addEventListener('change', () => refreshTelemetry());
 
   // 3. Benchmark Runner
   if (benchBtn) {
@@ -215,7 +251,7 @@ export function initDashboard() {
       redteamBtn.disabled = true;
       if (redteamBadge) redteamBadge.innerHTML = `<span class="pulse-dot"></span> SIMULATING ATTACKS...`;
       if (redteamContainer) {
-        redteamContainer.innerHTML = `<div class="bench-running"><span class="spinner"></span> Simulating 10 safe, controlled attacks (path traversal, fs writes, C2 egress, privilege escalation, fork ceiling, DLP)...</div>`;
+        redteamContainer.innerHTML = `<div class="bench-running"><span class="spinner"></span> Simulating 15 safe, controlled attacks across filesystem, network, privileges, resource ceilings, bypass escapes, and false-positive checks...</div>`;
       }
 
       try {
@@ -254,12 +290,16 @@ export function initDashboard() {
           <div class="rt-score-num ${summary.defenseScore === 100 ? 'text-green' : (summary.defenseScore >= 80 ? 'text-amber' : 'text-red')}">${summary.defenseScore ?? 0}%</div>
         </div>
         <div class="rt-stat-card">
-          <label>Vectors Tested</label>
+          <label>Scenarios Tested</label>
           <div class="rt-stat-val">${summary.total || 0}</div>
         </div>
         <div class="rt-stat-card">
           <label>Attacks Defended</label>
           <div class="rt-stat-val text-green">${summary.passed || 0}</div>
+        </div>
+        <div class="rt-stat-card">
+          <label>Unverified Controls</label>
+          <div class="rt-stat-val text-blue">${summary.unverified || 0}</div>
         </div>
         <div class="rt-stat-card">
           <label>Uncontained Breaches</label>
@@ -292,34 +332,37 @@ export function initDashboard() {
         </div>
       ` : `
         <div class="rt-secure-banner">
-          <span>🛡️</span> All 10 safe test attack vectors contained cleanly. Zero uncontained vulnerabilities detected.
+          <span>🛡️</span> Zero uncontained vulnerabilities detected across all tested scenarios. Tested on <strong>${esc((data.platform || 'host').toUpperCase())}</strong>.
         </div>
       `}
 
       <div class="rt-cards-grid">
         ${scenarios.map(s => {
           const statusClass = s.status === 'PASS' ? 'pass' : (s.status === 'FAIL' ? 'fail' : 'unverified');
-          const sevClass = `sev-${s.severity.toLowerCase()}`;
+          const sevClass = `sev-${(s.severity || 'low').toLowerCase()}`;
           return `
             <div class="rt-scenario-card ${statusClass}">
               <div class="rt-card-header">
                 <div style="display:flex; align-items:center; gap:8px;">
                   <span class="rt-id">${esc(s.id)}</span>
                   <span class="sev-tag ${sevClass}">${esc(s.severity)}</span>
+                  <span class="badge ${s.blocked ? 'bench-pass' : (s.status === 'PASS' ? 'bench-pass' : 'bench-fail')}" style="font-size:0.65rem;">
+                    ${s.category === 'FALSE_POSITIVE_CHECK' ? (s.status === 'PASS' ? 'CLEAN (0 FP)' : 'FALSE POSITIVE') : (s.blocked ? 'BLOCKED' : 'NOT BLOCKED')}
+                  </span>
                 </div>
                 <span class="bench-status-tag ${statusClass}">${esc(s.status)}</span>
               </div>
-              <h4 class="rt-title">${esc(s.name)}</h4>
+              <h4 class="rt-title">${esc(s.testName || s.name)}</h4>
               <p class="rt-vector"><strong>Vector:</strong> ${esc(s.vector)}</p>
               
               <div class="rt-comparison-box">
                 <div class="rt-cmp-line">
                   <span class="rt-cmp-lbl">Expected:</span>
-                  <span class="rt-cmp-val">${esc(s.expected)}</span>
+                  <span class="rt-cmp-val">${esc(s.expectedResult || s.expected)}</span>
                 </div>
                 <div class="rt-cmp-line">
                   <span class="rt-cmp-lbl">Actual:</span>
-                  <span class="rt-cmp-val ${statusClass === 'pass' ? 'text-green' : 'text-red'}">${esc(s.actual)}</span>
+                  <span class="rt-cmp-val ${statusClass === 'pass' ? 'text-green' : (statusClass === 'unverified' ? 'text-blue' : 'text-red')}">${esc(s.actualResult || s.actual)}</span>
                 </div>
               </div>
 
@@ -335,8 +378,9 @@ export function initDashboard() {
               </details>
 
               <div class="bench-meta" style="margin-top:8px;">
-                <span>Category: <em>${esc(s.category)}</em></span>
-                <span>${esc(s.executionMs)}ms</span>
+                <span>Category: <em>${esc(s.threatCategory || s.category)}</em></span>
+                <span>Audit ID: <code>${esc(s.auditEventId || '—')}</code></span>
+                <span>${esc(s.executionDuration || s.executionMs)}ms</span>
               </div>
             </div>
           `;
@@ -371,7 +415,7 @@ export function initDashboard() {
 
     manifestContainer.innerHTML = `
       <div class="manifest-summary-bar">
-        <span>Evaluated: <strong>${esc(data.policyName)}</strong> (${esc(data.platform)})</span>
+        <span>Active Policy: <strong>${esc(data.policyName)}</strong> (Platform: ${esc(data.platform)})</span>
         <div class="manifest-counts">
           <span class="tag-enforced">ENFORCED: ${summary.enforced || 0}</span>
           <span class="tag-unverified">UNVERIFIED: ${summary.unverified || 0}</span>
@@ -413,9 +457,14 @@ export function initDashboard() {
     });
   }
 
-  // Listen for execution events
+  // Listen for execution and policy activation events
   window.addEventListener('warden:execution', () => {
     refreshTelemetry();
+  });
+
+  window.addEventListener('warden:policy-activated', () => {
+    refreshTelemetry();
+    if (manifestBtn) manifestBtn.click();
   });
 
   // Initial load

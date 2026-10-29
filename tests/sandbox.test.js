@@ -204,14 +204,16 @@ test('AuditChain getChainStatus returns updated length after appends', () => {
 console.log('\n\x1b[36m%s\x1b[0m', '🎯 Red Team Testing Module Tests...');
 
 // 15. Verify scenario count and coverage of attack categories
-test('RedTeam defines required 10 attack vectors across all security categories', () => {
-  assert.strictEqual(REDTEAM_SCENARIOS.length, 10, 'Must have 10 scenario definitions');
+test('RedTeam defines required 15 attack vectors across all security categories', () => {
+  assert.ok(REDTEAM_SCENARIOS.length >= 15, `Must have at least 15 scenario definitions, got ${REDTEAM_SCENARIOS.length}`);
   const categories = new Set(REDTEAM_SCENARIOS.map(s => s.category));
   assert.ok(categories.has('FILESYSTEM'), 'Must cover FILESYSTEM category');
   assert.ok(categories.has('NETWORK'), 'Must cover NETWORK category');
   assert.ok(categories.has('PRIVILEGE'), 'Must cover PRIVILEGE category');
   assert.ok(categories.has('RESOURCE'), 'Must cover RESOURCE category');
   assert.ok(categories.has('DLP'), 'Must cover DLP category');
+  assert.ok(categories.has('ESCAPE_BYPASS'), 'Must cover ESCAPE_BYPASS category');
+  assert.ok(categories.has('FALSE_POSITIVE_CHECK'), 'Must cover FALSE_POSITIVE_CHECK category');
 });
 
 // 16. Verify required properties on each scenario
@@ -253,6 +255,100 @@ test('RedTeam scenarios provide actionable remediation guidance', () => {
   REDTEAM_SCENARIOS.forEach(sc => {
     assert.ok(typeof sc.remediation === 'string' && sc.remediation.length > 20, `Scenario ${sc.id} must have detailed remediation`);
   });
+});
+
+// ── PART 4: Policy Validation & Comparison Engine Tests ───────────────────────
+console.log('\n\x1b[36m%s\x1b[0m', '🛡️ Policy Validation & Comparison Engine Tests...');
+
+const { validatePolicy } = require('../engine/policy-validator.js');
+const { comparePolicies } = require('../engine/policy-comparator.js');
+const { getActivePolicy, setActivePolicy } = require('../engine/policy-enforcer.js');
+
+// 19. Policy Validation: Valid Policy
+test('validatePolicy approves valid policy configuration', () => {
+  const result = validatePolicy({
+    name: 'test-secure-agent',
+    runtime: 'process',
+    cpu: 1.0,
+    memory: 256,
+    pids: 8,
+    timeoutMs: 5000,
+    writablePaths: ['/tmp'],
+    egressAllowlist: ['api.openai.com', 'pypi.org'],
+  });
+  assert.strictEqual(result.valid, true, 'Valid policy must pass');
+  assert.strictEqual(result.errors.length, 0, 'No errors for valid policy');
+  assert.ok(result.enforceabilityScore > 0, 'Enforceability score must be calculated');
+});
+
+// 20. Policy Validation: Unsafe Writable Path Detection
+test('validatePolicy blocks critical system writable paths and directory traversal', () => {
+  const badRoots = ['/', '/etc', '/etc/shadow', '/usr', '/dev', '/tmp/../etc'];
+  badRoots.forEach(path => {
+    const res = validatePolicy({
+      name: 'exploit-test',
+      writablePaths: [path],
+    });
+    assert.strictEqual(res.valid, false, `Must reject unsafe writable path: ${path}`);
+    assert.ok(res.errors.length > 0, `Must produce error for: ${path}`);
+  });
+});
+
+// 21. Policy Validation: Egress Allowlist Wildcard and Dangerous IP Detection
+test('validatePolicy rejects wildcards, loopbacks, and metadata service egress targets', () => {
+  const badDomains = ['*', '*.openai.com', '127.0.0.1', 'localhost', '169.254.169.254', '10.0.0.1'];
+  badDomains.forEach(domain => {
+    const res = validatePolicy({
+      name: 'network-test',
+      egressAllowlist: [domain],
+    });
+    assert.strictEqual(res.valid, false, `Must reject dangerous egress target: ${domain}`);
+    assert.ok(res.errors.some(e => e.field.includes('egress_allowlist')), `Must flag egress error for ${domain}`);
+  });
+});
+
+// 22. Policy Validation: Empty allowlist enforces default-deny notice
+test('validatePolicy notes default-deny on empty egress allowlist', () => {
+  const res = validatePolicy({
+    name: 'airgapped-agent',
+    egressAllowlist: [],
+  });
+  assert.strictEqual(res.valid, true, 'Empty allowlist is valid');
+  assert.ok(res.warnings.some(w => w.code === 'DEFAULT_DENY_EGRESS'), 'Must warn about default-deny egress');
+});
+
+// 23. Policy Comparison: Resource Diffs and Regressions
+test('comparePolicies detects loosened resource limits and security regressions', () => {
+  const active = {
+    name: 'baseline',
+    cpu_limit: 0.5,
+    memory_limit_mb: 256,
+    max_processes: 8,
+    writable_paths: ['/tmp'],
+    egress_allowlist: ['pypi.org'],
+  };
+  const candidate = {
+    name: 'escalated',
+    cpu_limit: 3.5, // loosened significantly
+    memory_limit_mb: 2048,
+    max_processes: 64, // high PID risk
+    writable_paths: ['/tmp', '/var/log'], // critical non-standard path
+    egress_allowlist: ['pypi.org', 'cdn.jsdelivr.net', 'evil.com'],
+  };
+  const comp = comparePolicies(candidate, active);
+  assert.ok(comp.diffs.length >= 4, 'Must identify multiple parameter differences');
+  assert.ok(comp.regressions.length > 0, 'Must identify security regressions');
+  assert.strictEqual(comp.summary.riskLevel, 'CRITICAL', 'Must flag CRITICAL risk for writable /var/log');
+});
+
+// 24. Active Policy Management
+test('policyEnforcer sets and retrieves active policy', () => {
+  const initial = getActivePolicy();
+  assert.ok(initial.name, 'Initial active policy must exist');
+  setActivePolicy({ name: 'custom-active-test', timeoutMs: 7500 });
+  const updated = getActivePolicy();
+  assert.strictEqual(updated.name, 'custom-active-test', 'Active policy name must update');
+  assert.strictEqual(updated.timeoutMs, 7500, 'Active policy timeout must update');
 });
 
 console.log('\n----------------------------------------');

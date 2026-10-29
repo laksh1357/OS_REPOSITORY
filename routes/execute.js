@@ -19,7 +19,7 @@ const express = require('express');
 const router = express.Router();
 const { executeCode, HOST_CAPABILITIES } = require('../engine/executor');
 const { appendEvent, buildExecutionEvent } = require('../engine/audit-chain');
-const { evaluatePolicy } = require('../engine/policy-enforcer');
+const { getActivePolicy, evaluatePolicy } = require('../engine/policy-enforcer');
 const db = require('../db');
 
 // POST /api/v1/execute
@@ -31,15 +31,40 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Missing required string parameter: code' });
     }
 
-    // Build effective policy from request + defaults
+    // Default to currently active policy if no custom policy supplied
+    const active = getActivePolicy();
+    const effectiveName = policyInput?.name || active.name || 'default-python-sandbox';
+
     const policy = {
-      name: policyInput?.name || 'default-python-sandbox',
-      timeoutMs: Math.min(Number(policyInput?.timeoutMs) || 10000, 30000),
-      memoryMb: Math.min(Number(policyInput?.memoryMb) || 256, 2048),
-      maxProcesses: Math.min(Number(policyInput?.maxProcesses) || 8, 64),
-      writablePaths: Array.isArray(policyInput?.writablePaths) ? policyInput.writablePaths : ['/tmp'],
-      egressAllowlist: Array.isArray(policyInput?.egressAllowlist) ? policyInput.egressAllowlist : [],
+      name: effectiveName,
+      runtime: policyInput?.runtime || active.runtime || 'process',
+      timeoutMs: Math.min(Number(policyInput?.timeoutMs || policyInput?.timeout ? Number(policyInput?.timeout) * 1000 : active.timeoutMs) || 10000, 30000),
+      memoryMb: Math.min(Number(policyInput?.memoryMb || policyInput?.memory_limit_mb || active.memory_limit_mb) || 256, 2048),
+      maxProcesses: Math.min(Number(policyInput?.maxProcesses || policyInput?.max_processes || active.max_processes) || 8, 64),
+      writablePaths: Array.isArray(policyInput?.writablePaths || policyInput?.writable_paths)
+        ? (policyInput.writablePaths || policyInput.writable_paths)
+        : (active.writable_paths || ['/tmp']),
+      egressAllowlist: Array.isArray(policyInput?.egressAllowlist || policyInput?.egress_allowlist)
+        ? (policyInput.egressAllowlist || policyInput.egress_allowlist)
+        : (active.egress_allowlist || []),
+      failClosed: Boolean(policyInput?.failClosed ?? active.failClosed),
     };
+
+    // Record sandbox execution request in audit trail
+    appendEvent({
+      eventType: 'SANDBOX_EXECUTION_REQUEST',
+      policyName: policy.name,
+      severity: 'INFO',
+      status: 'INITIATED',
+      decisionReason: 'Sandbox execution requested for code snippet',
+      metadata: {
+        timeoutMs: policy.timeoutMs,
+        memoryMb: policy.memoryMb,
+        maxProcesses: policy.maxProcesses,
+        writablePaths: policy.writablePaths,
+        egressAllowlist: policy.egressAllowlist,
+      },
+    });
 
     // Run the actual execution
     const result = await executeCode(code, policy);
@@ -103,6 +128,23 @@ router.post('/', async (req, res, next) => {
       },
     });
   } catch (err) {
+    if (err.code === 'SECURITY_ENFORCEMENT_FAILED') {
+      try {
+        appendEvent({
+          eventType: 'SECURITY_ACTION_DENIED',
+          severity: 'CRITICAL',
+          status: 'FAIL_CLOSED',
+          decisionReason: err.message,
+          metadata: { unsupportedControls: err.unsupportedControls },
+        });
+      } catch (_) {}
+      return res.status(403).json({
+        success: false,
+        error: 'SECURITY_ENFORCEMENT_FAILED',
+        message: err.message,
+        unsupportedControls: err.unsupportedControls || [],
+      });
+    }
     next(err);
   }
 });
@@ -118,15 +160,8 @@ router.get('/capabilities', (req, res) => {
 
 // GET /api/v1/execute/policy-manifest
 router.get('/policy-manifest', (req, res) => {
-  const policy = {
-    name: 'default-python-sandbox',
-    timeoutMs: 10000,
-    memoryMb: 256,
-    maxProcesses: 8,
-    writablePaths: ['/tmp'],
-    egressAllowlist: [],
-  };
-  const manifest = evaluatePolicy(policy);
+  const active = getActivePolicy();
+  const manifest = evaluatePolicy(active);
   res.json(manifest);
 });
 
